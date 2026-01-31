@@ -1,23 +1,42 @@
 import { render } from "preact";
 import { LocationProvider, Router, Route } from "preact-iso";
-
-import { Header } from "./components/Header.jsx";
-import { Home } from "./pages/Home/index.jsx";
-import { NotFound } from "./pages/_404.jsx";
 import "./style.css";
+
+// Import all pages
+import { NotFound } from "./pages/_404";
+import { Login } from "./pages/auth/Login";
+import { Signup } from "./pages/auth/Signup";
+import { ProjectsList } from "./pages/dashboard/ProjectsList";
+import { Settings } from "./pages/dashboard/Settings";
+import { KanbanView } from "./pages/project/KanbanView";
+import { TableView } from "./pages/project/TableView";
+import { TicketDetail } from "./pages/project/TicketDetail";
 
 export function App() {
     return (
         <LocationProvider>
-            <Header />
-            <main>
-                <Router>
-                    <Route path="/" component={Home} />
-                    <Route default component={NotFound} />
-                </Router>
-            </main>
+            <Router>
+                {/* Auth routes */}
+                <Route path="/" component={Login} />
+                <Route path="/signup" component={Signup} />
+
+                {/* Dashboard routes */}
+                <Route path="/dashboard/projects" component={ProjectsList} />
+                <Route path="/dashboard/settings" component={Settings} />
+
+                {/* Project routes */}
+                <Route path="/dashboard/projects/:projectId/kanban" component={KanbanView} />
+                <Route path="/dashboard/projects/:projectId/ticket" component={TableView} />
+                <Route
+                    path="/dashboard/projects/:projectId/tickets/:ticketId"
+                    component={TicketDetail}
+                />
+
+                {/* 404 */}
+                <Route default component={NotFound} />
+            </Router>
         </LocationProvider>
     );
 }
 
-render(<App />, document.getElementById("app"));
+render(<App />, document.getElementById("app")!);
