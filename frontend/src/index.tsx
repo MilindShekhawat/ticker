@@ -3,6 +3,7 @@ import { LocationProvider, Router, Route } from "preact-iso";
 import "./style.css";
 
 // Import all pages
+import { Playground } from "./pages/playground/Playground";
 import { NotFound } from "./pages/_404";
 import { Login } from "./pages/auth/Login";
 import { Signup } from "./pages/auth/Signup";
@@ -16,6 +17,9 @@ export function App() {
     return (
         <LocationProvider>
             <Router>
+                {/* Playground */}
+                <Route path="/playground" component={Playground} />
+
                 {/* Auth routes */}
                 <Route path="/" component={Login} />
                 <Route path="/signup" component={Signup} />
