@@ -108,13 +108,13 @@ export function Playground() {
                             <div>
                                 <h3 class={`${styles.cardContentHeading}`}>VARIANTS</h3>
                                 <div class={`${styles.cardContentSection}`}>
-                                    <Button variant="primary">PRIMARY</Button>
-                                    <Button variant="white">WHITE</Button>
-                                    <Button variant="outline">OUTLINE</Button>
-                                    <Button variant="black">BLACK</Button>
-                                    <Button variant="invert">INVERT</Button>
-                                    <Button variant="destructive">DESTRUCTIVE</Button>
-                                    <Button disabled>DISABLED</Button>
+                                    <Button variant="primary">Primary</Button>
+                                    <Button variant="white">White</Button>
+                                    <Button variant="outline">Outline</Button>
+                                    <Button variant="black">Black</Button>
+                                    <Button variant="invert">Invert</Button>
+                                    <Button variant="destructive">Destructive</Button>
+                                    <Button disabled>Disabled</Button>
                                 </div>
                             </div>
 
@@ -123,19 +123,19 @@ export function Playground() {
                                 <h3 class={`${styles.cardContentHeading}`}>SIZES</h3>
                                 <div class={`${styles.cardContentSection}`}>
                                     <Button size="xs" variant="invert">
-                                        X-SMALL
+                                        X-small
                                     </Button>
                                     <Button size="sm" variant="black">
-                                        SMALL
+                                        Small
                                     </Button>
                                     <Button size="md" variant="white">
-                                        REGULAR
+                                        Regular
                                     </Button>
                                     <Button size="lg" variant="outline">
-                                        LARGE
+                                        Large
                                     </Button>
                                     <Button size="xl" variant="primary">
-                                        X-LARGE
+                                        X-large
                                     </Button>
                                 </div>
                             </div>
@@ -149,11 +149,11 @@ export function Playground() {
                                         onClick={handleLoadingDemo}
                                         disabled={isLoading}>
                                         {isLoading ?
-                                            <span class="flex items-center gap-2">
-                                                <Loader />
-                                                LOADING...
-                                            </span>
-                                        :   "CLICK TO LOAD"}
+                                            <>
+                                                Loading
+                                                <Loader variant="scanline" />
+                                            </>
+                                        :   "Click to load"}
                                     </Button>
                                 </div>
                             </div>
@@ -233,8 +233,8 @@ export function Playground() {
                         <CardContent>
                             <div class="flex flex-wrap gap-2">
                                 <Badge variant="primary">Default</Badge>
-                                <Badge variant="success">Secondary</Badge>
                                 <Badge variant="destructive">Destructive</Badge>
+                                <Badge variant="success">Secondary</Badge>
                                 <Badge variant="warning">Warning</Badge>
                                 <Badge variant="blue">Blue</Badge>
                                 <Badge variant="purple">Purple</Badge>
@@ -271,7 +271,7 @@ export function Playground() {
                             <div>
                                 <h3 class={`${styles.cardContentHeading}`}>PULSE</h3>
                                 <div class={`${styles.cardContentSection}`}>
-                                    <Loader variant="dense"/>
+                                    <Loader variant="pulse" />
                                 </div>
                             </div>
                             <div>

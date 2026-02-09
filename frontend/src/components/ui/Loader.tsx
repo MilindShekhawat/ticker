@@ -1,13 +1,27 @@
 import { useEffect, useState } from "preact/hooks";
 import { HTMLAttributes } from "preact";
+import { cva, type VariantProps } from "class-variance-authority";
 
-type Variant = "noise" | "scanline";
-type Size = "xs" | "sm" | "md" | "lg";
+const loaderVariants = cva(`inline-block font-bold whitespace-pre leading-none`, {
+    variants: {
+        variant: {
+            noise: `text-lime-400`,
+            scanline: ``,
+        },
+        size: {
+            xs: `text-xs`,
+            sm: `text-sm`,
+            md: `text-base`,
+            lg: `text-lg`,
+        },
+    },
+    defaultVariants: {
+        variant: `noise`,
+        size: `md`,
+    },
+});
 
-type LoaderProps = HTMLAttributes<HTMLDivElement> & {
-    variant?: Variant;
-    size?: Size;
-};
+type LoaderProps = HTMLAttributes<HTMLDivElement> & VariantProps<typeof loaderVariants>;
 
 const CHARS = ["█", "▓", "▒", "░", "■", "□", "•", " "];
 
@@ -24,21 +38,7 @@ function generateGrid(chars: string[]) {
     );
 }
 
-const base = "inline-block font-bold whitespace-pre leading-none";
-
-const sizes: Record<Size, string> = {
-    xs: "text-xs",
-    sm: "text-sm",
-    md: "text-base",
-    lg: "text-lg",
-};
-
-export function Loader({
-    variant = "noise",
-    size = "md",
-    class: className,
-    ...props
-}: LoaderProps) {
+export function Loader({ variant, size, class: className, ...props }: LoaderProps) {
     const [grid, setGrid] = useState(() => generateGrid(CHARS));
     const [blink, setBlink] = useState(true);
 
@@ -61,24 +61,23 @@ export function Loader({
     useEffect(() => {
         const id = setInterval(() => {
             if (variant === "scanline") {
-                setBlink(!blink);
+                setBlink((b) => !b);
             }
-        }, 500);
+        }, 400);
+
         return () => clearInterval(id);
-    }, [blink]);
+    }, [variant]);
 
     if (variant === "scanline") {
         return (
-            <div {...props} class={[base, sizes[size], className].filter(Boolean).join(" ")}>
+            <div {...props} class={loaderVariants({ variant, size, class: className })}>
                 {blink ? " █" : " _"}
             </div>
         );
     }
 
     return (
-        <div
-            {...props}
-            class={["text-lime-400", base, sizes[size], className].filter(Boolean).join(" ")}>
+        <div {...props} class={loaderVariants({ variant, size, class: className })}>
             {grid.map((row) => (
                 <div>{row.join("")}</div>
             ))}

@@ -1,9 +1,21 @@
-// src/components/ui/Card.tsx
 import { ComponentChildren, HTMLAttributes } from "preact";
+import { cva, type VariantProps } from "class-variance-authority";
+
+const cardVariants = cva(`bg-zinc-900 text-zinc-100 border border-zinc-800 transition`, {
+    variants: {
+        interactive: {
+            true: `cursor-pointer hover:border-lime-400`,
+            false: ``,
+        },
+    },
+    defaultVariants: {
+        interactive: false,
+    },
+});
 
 type CardProps = HTMLAttributes<HTMLDivElement> & {
     children: ComponentChildren;
-};
+} & VariantProps<typeof cardVariants>;
 
 type CardHeaderProps = HTMLAttributes<HTMLDivElement> & {
     children: ComponentChildren;
@@ -24,16 +36,15 @@ type CardContentProps = HTMLAttributes<HTMLDivElement> & {
 type CardFooterProps = HTMLAttributes<HTMLDivElement> & {
     children: ComponentChildren;
 };
-
-const base = "bg-zinc-900 text-zinc-100 border border-zinc-800 transition";
-const clickable = "cursor-pointer hover:border-lime-400";
-
-export function Card({ children, class: className, ...props }: CardProps) {
+export function Card({ children, class: className, onClick, ...props }: CardProps) {
     return (
         <div
             {...props}
-            class={[base, props.onClick && clickable, className].filter(Boolean).join(" ")}
-            onClick={props.onClick}>
+            onClick={onClick}
+            class={cardVariants({
+                interactive: Boolean(onClick),
+                class: className,
+            })}>
             {children}
         </div>
     );

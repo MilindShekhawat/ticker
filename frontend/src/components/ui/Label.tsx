@@ -1,10 +1,10 @@
 import { JSX } from "preact";
 
-interface LabelProps {
+type LabelProps = {
     children: JSX.Element | string;
     htmlFor?: string;
     class?: string;
-}
+};
 
 export function Label({ children, htmlFor, class: className = "" }: LabelProps) {
     return (
