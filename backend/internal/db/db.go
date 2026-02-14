@@ -11,21 +11,32 @@ import (
 
 var DB *sql.DB
 
-func Init() error {
-	// TODO: also need to allow the user to set this dir
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+func Init(dbPath string) error {
+	var finalPath string
+
+	if dbPath != "" {
+		finalPath = dbPath
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+
+		tickerDir := filepath.Join(homeDir, ".ticker")
+		if err := os.MkdirAll(tickerDir, 0755); err != nil {
+			return fmt.Errorf("failed to create ticker directory: %w", err)
+		}
+
+		finalPath = filepath.Join(tickerDir, "ticker.db")
 	}
 
-	tickerDir := filepath.Join(homeDir, ".ticker")
-	if err := os.MkdirAll(tickerDir, 0755); err != nil {
-		return fmt.Errorf("failed to create ticker directory: %w", err)
+	dir := filepath.Dir(finalPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	dbPath := filepath.Join(tickerDir, "ticker.db")
-
-	db, err := sql.Open("sqlite", dbPath)
+	// Open database connection
+	db, err := sql.Open("sqlite", finalPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
@@ -40,7 +51,7 @@ func Init() error {
 	db.SetMaxIdleConns(1)
 
 	DB = db
-	fmt.Printf("Database initialized: %s\n", dbPath)
+	fmt.Printf("Database initialized: %s\n", finalPath)
 	return nil
 }
 
