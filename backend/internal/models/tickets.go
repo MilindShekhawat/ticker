@@ -2,10 +2,23 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/MilindShekhawat/ticker/internal/db"
+)
+
+type Scanner interface {
+	Scan(dest ...interface{}) error
+}
+
+var (
+	ErrTicketNotFound   = errors.New("ticket not found")
+	ErrProjectNotFound  = errors.New("project not found")
+	ErrStatusNotFound   = errors.New("status not found")
+	ErrUserNotFound     = errors.New("user not found")
+	ErrAssigneeNotFound = errors.New("assignee not found")
 )
 
 type Ticket struct {
@@ -16,20 +29,86 @@ type Ticket struct {
 	Description  string     `json:"description"`
 	StatusID     int        `json:"status_id"`
 	Position     int        `json:"position"`
-	AssigneeID   *int       `json:"assignee_id"` // Pointer for nullable
+	AssigneeID   *int       `json:"assignee_id"`
 	CreatedBy    int        `json:"created_by"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
-	DeletedAt    *time.Time `json:"deleted_at,omitempty"` // Pointer for nullable
+	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 }
 
-func validateStatus(statusID int) (bool, error) {
-	var statusExists bool
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM statuses WHERE id = ?)", statusID).Scan(&statusExists)
+func validateProject(projectID int) error {
+	var exists bool
+
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)", projectID).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("failed to validate status: %w", err)
+		return fmt.Errorf("failed to validate project: %w", err)
 	}
-	return statusExists, nil
+	if !exists {
+		return ErrProjectNotFound
+	}
+	return nil
+}
+
+func validateStatus(statusID int) error {
+	var exists bool
+
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM statuses WHERE id = ?)", statusID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to validate status: %w", err)
+	}
+	if !exists {
+		return ErrStatusNotFound
+	}
+	return nil
+}
+
+func validateUser(userID int) error {
+	var exists bool
+
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)", userID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to validate user: %w", err)
+	}
+	if !exists {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func validateAssignee(assigneeID *int) error {
+	var exists bool
+
+	if assigneeID == nil {
+		return nil
+	}
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)", assigneeID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to validate asignee: %w", err)
+	}
+	if !exists {
+		return ErrAssigneeNotFound
+	}
+	return nil
+}
+
+// Created an interface Scanner which is anything that has a Scan function
+func scanTicket(s Scanner) (*Ticket, error) {
+	var t Ticket
+	err := s.Scan(
+		&t.ID,
+		&t.ProjectID,
+		&t.TicketNumber,
+		&t.Title,
+		&t.Description,
+		&t.StatusID,
+		&t.Position,
+		&t.AssigneeID,
+		&t.CreatedBy,
+		&t.CreatedAt,
+		&t.UpdatedAt,
+		&t.DeletedAt,
+	)
+	return &t, err
 }
 
 func GetAllTickets() ([]Ticket, error) {
@@ -50,27 +129,14 @@ func GetAllTickets() ([]Ticket, error) {
 
 	tickets := []Ticket{}
 	for rows.Next() {
-		var t Ticket
-		err := rows.Scan(
-			&t.ID,
-			&t.ProjectID,
-			&t.TicketNumber,
-			&t.Title,
-			&t.Description,
-			&t.StatusID,
-			&t.Position,
-			&t.AssigneeID,
-			&t.CreatedBy,
-			&t.CreatedAt,
-			&t.UpdatedAt,
-			&t.DeletedAt,
-		)
+		t, err := scanTicket(rows)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan ticket: %w", err)
 		}
-		tickets = append(tickets, t)
+		tickets = append(tickets, *t)
 	}
 
+	// Always check Err() after rows.Next()
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating tickets: %w", err)
 	}
@@ -87,30 +153,15 @@ func GetTicketByID(id int) (*Ticket, error) {
 		WHERE id = ? AND deleted_at IS NULL
 	`
 
-	var t Ticket
-	err := db.DB.QueryRow(query, id).Scan(
-		&t.ID,
-		&t.ProjectID,
-		&t.TicketNumber,
-		&t.Title,
-		&t.Description,
-		&t.StatusID,
-		&t.Position,
-		&t.AssigneeID,
-		&t.CreatedBy,
-		&t.CreatedAt,
-		&t.UpdatedAt,
-		&t.DeletedAt,
-	)
-
+	t, err := scanTicket(db.DB.QueryRow(query, id))
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, ErrTicketNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ticket: %w", err)
 	}
 
-	return &t, nil
+	return t, nil
 }
 
 func GetTicketsByProjectID(projectID int) ([]Ticket, error) {
@@ -131,25 +182,11 @@ func GetTicketsByProjectID(projectID int) ([]Ticket, error) {
 
 	tickets := []Ticket{}
 	for rows.Next() {
-		var t Ticket
-		err := rows.Scan(
-			&t.ID,
-			&t.ProjectID,
-			&t.TicketNumber,
-			&t.Title,
-			&t.Description,
-			&t.StatusID,
-			&t.Position,
-			&t.AssigneeID,
-			&t.CreatedBy,
-			&t.CreatedAt,
-			&t.UpdatedAt,
-			&t.DeletedAt,
-		)
+		t, err := scanTicket(rows)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan ticket: %w", err)
 		}
-		tickets = append(tickets, t)
+		tickets = append(tickets, *t)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -160,13 +197,21 @@ func GetTicketsByProjectID(projectID int) ([]Ticket, error) {
 }
 
 func CreateTicket(projectID int, title, description string, statusID int, createdBy int, assigneeID *int) (*Ticket, error) {
-	statusExists, err := validateStatus(statusID)
-	if !statusExists {
-		return nil, fmt.Errorf("invalid status_id: %d", statusID)
+	if err := validateProject(projectID); err != nil {
+		return nil, err
+	}
+	if err := validateStatus(statusID); err != nil {
+		return nil, err
+	}
+	if err := validateUser(createdBy); err != nil {
+		return nil, err
+	}
+	if err := validateAssignee(assigneeID); err != nil {
+		return nil, err
 	}
 
 	var ticketNumber int
-	err = db.DB.QueryRow(`SELECT COALESCE(MAX(ticket_number), 0) + 1 WHERE project_id = ? FROM tickets`, projectID).Scan(&ticketNumber)
+	err := db.DB.QueryRow(`SELECT COALESCE(MAX(ticket_number), 0) + 1 FROM tickets WHERE project_id = ?`, projectID).Scan(&ticketNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get next ticket number: %w", err)
 	}
@@ -175,7 +220,6 @@ func CreateTicket(projectID int, title, description string, statusID int, create
 		INSERT INTO tickets (project_id, ticket_number, title, description, status_id, created_by, assignee_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
-
 	result, err := db.DB.Exec(query, projectID, ticketNumber, title, description, statusID, createdBy, assigneeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ticket: %w", err)
@@ -183,16 +227,18 @@ func CreateTicket(projectID int, title, description string, statusID int, create
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get insert ID: %w", err)
+		return nil, fmt.Errorf("failed to get insert id: %w", err)
 	}
 
 	return GetTicketByID(int(id))
 }
 
 func UpdateTicket(id int, title, description string, statusID int, assigneeID *int) (*Ticket, error) {
-	statusExists, err := validateStatus(statusID)
-	if !statusExists {
-		return nil, fmt.Errorf("invalid status_id: %d", statusID)
+	if err := validateStatus(statusID); err != nil {
+		return nil, err
+	}
+	if err := validateAssignee(assigneeID); err != nil {
+		return nil, err
 	}
 
 	query := `
@@ -211,7 +257,7 @@ func UpdateTicket(id int, title, description string, statusID int, assigneeID *i
 		return nil, fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return nil, fmt.Errorf("ticket with id %d not found", id)
+		return nil, ErrTicketNotFound
 	}
 
 	return GetTicketByID(id)
@@ -234,7 +280,7 @@ func DeleteTicket(id int) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("ticket with id %d not found", id)
+		return ErrTicketNotFound
 	}
 
 	return nil
@@ -245,7 +291,7 @@ func HardDeleteTicket(id int) error {
 
 	result, err := db.DB.Exec(query, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete ticket: %w", err)
+		return fmt.Errorf("failed to hard delete ticket: %w", err)
 	}
 
 	rows, err := result.RowsAffected()
@@ -253,7 +299,7 @@ func HardDeleteTicket(id int) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("ticket with id %d not found", id)
+		return ErrTicketNotFound
 	}
 
 	return nil
