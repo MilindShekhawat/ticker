@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/MilindShekhawat/ticker/internal/db"
@@ -252,24 +253,49 @@ func CreateTicket(projectID int, title, description string, statusID, priorityID
 	return GetTicketByID(int(id))
 }
 
-func UpdateTicket(id int, title, description string, statusID, priorityID int, assigneeID *int) (*Ticket, error) {
-	if err := validateStatus(statusID); err != nil {
-		return nil, err
+func UpdateTicket(id int, title, description *string, statusID, priorityID, assigneeID *int) (*Ticket, error) {
+	if statusID != nil {
+		if err := validateStatus(*statusID); err != nil {
+			return nil, err
+		}
 	}
-	if err := validatePriority(priorityID); err != nil {
-		return nil, err
+	if priorityID != nil {
+		if err := validatePriority(*priorityID); err != nil {
+			return nil, err
+		}
 	}
 	if err := validateAssignee(assigneeID); err != nil {
 		return nil, err
 	}
 
-	query := `
-		UPDATE tickets
-		SET title = ?, description = ?, status_id = ?, priority_id = ?, assignee_id = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND deleted_at IS NULL
-	`
+	var updates []string
+	var args []interface{}
 
-	result, err := db.DB.Exec(query, title, description, statusID, priorityID, assigneeID, id)
+	if title != nil {
+		updates = append(updates, "title = ?")
+		args = append(args, *title)
+	}
+	if description != nil {
+		updates = append(updates, "description = ?")
+		args = append(args, *description)
+	}
+	if statusID != nil {
+		updates = append(updates, "status_id = ?")
+		args = append(args, *statusID)
+	}
+	if priorityID != nil {
+		updates = append(updates, "priority_id = ?")
+		args = append(args, *priorityID)
+	}
+	if assigneeID != nil {
+		updates = append(updates, "assignee_id = ?")
+		args = append(args, *assigneeID)
+	}
+
+	query := fmt.Sprintf("UPDATE tickets SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL", strings.Join(updates, ", "))
+	args = append(args, id)
+
+	result, err := db.DB.Exec(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update ticket: %w", err)
 	}

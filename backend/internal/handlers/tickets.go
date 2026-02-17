@@ -150,11 +150,11 @@ func UpdateTicket(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		StatusID    int    `json:"status_id"`
-		PriorityID  int    `json:"priority_id"`
-		AssigneeID  *int   `json:"assignee_id"`
+		Title       *string `json:"title"`
+		Description *string `json:"description"`
+		StatusID    *int    `json:"status_id"`
+		PriorityID  *int    `json:"priority_id"`
+		AssigneeID  *int    `json:"assignee_id"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -163,25 +163,20 @@ func UpdateTicket(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Title == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Title is required",
-		})
+	if req.Title == nil && req.Description == nil && req.StatusID == nil && req.PriorityID == nil && req.AssigneeID == nil {
+		return c.Status(400).JSON(fiber.Map{"error": "No fields to update"})
 	}
-	if len(req.Title) > 200 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Title too long (max 200 characters)",
-		})
+	if req.Title != nil && *req.Title == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Title cannot be empty"})
 	}
-	if req.StatusID == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Status ID is required",
-		})
+	if req.Title != nil && len(*req.Title) > 200 {
+		return c.Status(400).JSON(fiber.Map{"error": "Title too long"})
 	}
-	if req.PriorityID == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Priority ID is required",
-		})
+	if req.StatusID != nil && *req.StatusID == 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "Status ID cannot be 0"})
+	}
+	if req.PriorityID != nil && *req.PriorityID == 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "Priority ID cannot be 0"})
 	}
 
 	ticket, err := models.UpdateTicket(id, req.Title, req.Description, req.StatusID, req.PriorityID, req.AssigneeID)
