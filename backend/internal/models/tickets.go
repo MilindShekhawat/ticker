@@ -17,6 +17,7 @@ var (
 	ErrTicketNotFound   = errors.New("ticket not found")
 	ErrProjectNotFound  = errors.New("project not found")
 	ErrStatusNotFound   = errors.New("status not found")
+	ErrPriorityNotFound = errors.New("priority not found")
 	ErrUserNotFound     = errors.New("user not found")
 	ErrAssigneeNotFound = errors.New("assignee not found")
 )
@@ -28,6 +29,7 @@ type Ticket struct {
 	Title        string     `json:"title"`
 	Description  string     `json:"description"`
 	StatusID     int        `json:"status_id"`
+	PriorityID   int        `json:"priority_id"`
 	Position     int        `json:"position"`
 	AssigneeID   *int       `json:"assignee_id"`
 	CreatedBy    int        `json:"created_by"`
@@ -58,6 +60,19 @@ func validateStatus(statusID int) error {
 	}
 	if !exists {
 		return ErrStatusNotFound
+	}
+	return nil
+}
+
+func validatePriority(priorityID int) error {
+	var exists bool
+
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM priorities WHERE id = ?)", priorityID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to validate priority: %w", err)
+	}
+	if !exists {
+		return ErrPriorityNotFound
 	}
 	return nil
 }
@@ -101,6 +116,7 @@ func scanTicket(s Scanner) (*Ticket, error) {
 		&t.Title,
 		&t.Description,
 		&t.StatusID,
+		&t.PriorityID,
 		&t.Position,
 		&t.AssigneeID,
 		&t.CreatedBy,
@@ -114,7 +130,7 @@ func scanTicket(s Scanner) (*Ticket, error) {
 func GetAllTickets() ([]Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
-		       status_id, position, assignee_id, created_by,
+		       status_id, priority_id, position, assignee_id, created_by,
 		       created_at, updated_at, deleted_at
 		FROM tickets
 		WHERE deleted_at IS NULL
@@ -147,7 +163,7 @@ func GetAllTickets() ([]Ticket, error) {
 func GetTicketByID(id int) (*Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
-		       status_id, position, assignee_id, created_by,
+		       status_id, priority_id, position, assignee_id, created_by,
 		       created_at, updated_at, deleted_at
 		FROM tickets
 		WHERE id = ? AND deleted_at IS NULL
@@ -167,7 +183,7 @@ func GetTicketByID(id int) (*Ticket, error) {
 func GetTicketsByProjectID(projectID int) ([]Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
-		       status_id, position, assignee_id, created_by,
+		       status_id, priority_id, position, assignee_id, created_by,
 		       created_at, updated_at, deleted_at
 		FROM tickets
 		WHERE project_id = ? AND deleted_at IS NULL
@@ -196,11 +212,14 @@ func GetTicketsByProjectID(projectID int) ([]Ticket, error) {
 	return tickets, nil
 }
 
-func CreateTicket(projectID int, title, description string, statusID int, createdBy int, assigneeID *int) (*Ticket, error) {
+func CreateTicket(projectID int, title, description string, statusID, priorityID, createdBy int, assigneeID *int) (*Ticket, error) {
 	if err := validateProject(projectID); err != nil {
 		return nil, err
 	}
 	if err := validateStatus(statusID); err != nil {
+		return nil, err
+	}
+	if err := validatePriority(priorityID); err != nil {
 		return nil, err
 	}
 	if err := validateUser(createdBy); err != nil {
@@ -217,10 +236,10 @@ func CreateTicket(projectID int, title, description string, statusID int, create
 	}
 
 	query := `
-		INSERT INTO tickets (project_id, ticket_number, title, description, status_id, created_by, assignee_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tickets (project_id, ticket_number, title, description, status_id, priority_id, created_by, assignee_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := db.DB.Exec(query, projectID, ticketNumber, title, description, statusID, createdBy, assigneeID)
+	result, err := db.DB.Exec(query, projectID, ticketNumber, title, description, statusID, priorityID, createdBy, assigneeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ticket: %w", err)
 	}
@@ -233,8 +252,11 @@ func CreateTicket(projectID int, title, description string, statusID int, create
 	return GetTicketByID(int(id))
 }
 
-func UpdateTicket(id int, title, description string, statusID int, assigneeID *int) (*Ticket, error) {
+func UpdateTicket(id int, title, description string, statusID, priorityID int, assigneeID *int) (*Ticket, error) {
 	if err := validateStatus(statusID); err != nil {
+		return nil, err
+	}
+	if err := validatePriority(priorityID); err != nil {
 		return nil, err
 	}
 	if err := validateAssignee(assigneeID); err != nil {
@@ -243,11 +265,11 @@ func UpdateTicket(id int, title, description string, statusID int, assigneeID *i
 
 	query := `
 		UPDATE tickets
-		SET title = ?, description = ?, status_id = ?, assignee_id = ?, updated_at = CURRENT_TIMESTAMP
+		SET title = ?, description = ?, status_id = ?, priority_id = ?, assignee_id = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND deleted_at IS NULL
 	`
 
-	result, err := db.DB.Exec(query, title, description, statusID, assigneeID, id)
+	result, err := db.DB.Exec(query, title, description, statusID, priorityID, assigneeID, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update ticket: %w", err)
 	}

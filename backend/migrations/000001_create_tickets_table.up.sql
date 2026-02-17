@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     description TEXT,
 
     status_id INTEGER NOT NULL,
+    priority_id INTEGER NOT NULL,
     position INTEGER DEFAULT 0,
 
     assignee_id INTEGER,
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     -- Foreign keys
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (status_id) REFERENCES statuses(id),
+    FOREIGN KEY (priority_id) REFERENCES priorities(id),
     FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by) REFERENCES users(id),
 
@@ -31,6 +33,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_tickets_project ON tickets(project_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assignee ON tickets(assignee_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_creator ON tickets(created_by);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);

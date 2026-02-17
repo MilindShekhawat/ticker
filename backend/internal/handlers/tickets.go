@@ -8,7 +8,14 @@ import (
 )
 
 func GetTickets(c *fiber.Ctx) error {
-	tickets, err := models.GetAllTickets()
+	projectId, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid project ID",
+		})
+	}
+
+	tickets, err := models.GetTicketsByProjectID(projectId)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),
@@ -42,11 +49,18 @@ func GetTicket(c *fiber.Ctx) error {
 }
 
 func CreateTicket(c *fiber.Ctx) error {
+	projectId, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid project ID",
+		})
+	}
+
 	var req struct {
-		ProjectID   int    `json:"project_id"`
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		StatusID    int    `json:"status_id"`
+		PriorityID  int    `json:"priority_id"`
 		CreatedBy   int    `json:"created_by"`
 		AssigneeID  *int   `json:"assignee_id"`
 	}
@@ -57,11 +71,6 @@ func CreateTicket(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.ProjectID == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Project ID is required",
-		})
-	}
 	if req.Title == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Title is required",
@@ -77,6 +86,11 @@ func CreateTicket(c *fiber.Ctx) error {
 			"error": "Status ID is required",
 		})
 	}
+	if req.PriorityID == 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Priority ID is required",
+		})
+	}
 	if req.CreatedBy == 0 {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Created by is required",
@@ -84,10 +98,11 @@ func CreateTicket(c *fiber.Ctx) error {
 	}
 
 	ticket, err := models.CreateTicket(
-		req.ProjectID,
+		projectId,
 		req.Title,
 		req.Description,
 		req.StatusID,
+		req.PriorityID,
 		req.CreatedBy,
 		req.AssigneeID,
 	)
@@ -101,6 +116,11 @@ func CreateTicket(c *fiber.Ctx) error {
 		if errors.Is(err, models.ErrStatusNotFound) {
 			return c.Status(400).JSON(fiber.Map{
 				"error": "Invalid status ID",
+			})
+		}
+		if errors.Is(err, models.ErrPriorityNotFound) {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Invalid priority ID",
 			})
 		}
 		if errors.Is(err, models.ErrUserNotFound) {
@@ -133,6 +153,7 @@ func UpdateTicket(c *fiber.Ctx) error {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		StatusID    int    `json:"status_id"`
+		PriorityID  int    `json:"priority_id"`
 		AssigneeID  *int   `json:"assignee_id"`
 	}
 
@@ -157,8 +178,13 @@ func UpdateTicket(c *fiber.Ctx) error {
 			"error": "Status ID is required",
 		})
 	}
+	if req.PriorityID == 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Priority ID is required",
+		})
+	}
 
-	ticket, err := models.UpdateTicket(id, req.Title, req.Description, req.StatusID, req.AssigneeID)
+	ticket, err := models.UpdateTicket(id, req.Title, req.Description, req.StatusID, req.PriorityID, req.AssigneeID)
 	if err != nil {
 		if errors.Is(err, models.ErrTicketNotFound) {
 			return c.Status(404).JSON(fiber.Map{
@@ -168,6 +194,11 @@ func UpdateTicket(c *fiber.Ctx) error {
 		if errors.Is(err, models.ErrStatusNotFound) {
 			return c.Status(400).JSON(fiber.Map{
 				"error": "Invalid status ID",
+			})
+		}
+		if errors.Is(err, models.ErrPriorityNotFound) {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Invalid priority ID",
 			})
 		}
 		if errors.Is(err, models.ErrAssigneeNotFound) {

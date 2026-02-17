@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"github.com/MilindShekhawat/ticker/internal/handlers"
+	"github.com/gofiber/fiber/v2"
 )
 
 func Routes(app *fiber.App) {
@@ -13,11 +13,12 @@ func Routes(app *fiber.App) {
 	api := app.Group("/api")
 
 	// Tickets
-	api.Get("/tickets", handlers.GetTickets)
+	api.Get("/projects/:id/tickets", handlers.GetTickets)
+	api.Post("/projects/:id/tickets", handlers.CreateTicket)
 	api.Get("/tickets/:id", handlers.GetTicket)
-	api.Post("/tickets", handlers.CreateTicket)
-	api.Put("/tickets/:id", handlers.UpdateTicket)
+	api.Patch("/tickets/:id", handlers.UpdateTicket)
 	api.Delete("/tickets/:id", handlers.DeleteTicket)
+	// api.Patch("/projects/:id/tickets/bulk", handlers.BulkUpdateTickets)
 }
 
 func healthCheck(c *fiber.Ctx) error {
