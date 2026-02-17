@@ -2,25 +2,11 @@ package models
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/MilindShekhawat/ticker/internal/db"
-)
-
-type Scanner interface {
-	Scan(dest ...interface{}) error
-}
-
-var (
-	ErrTicketNotFound   = errors.New("ticket not found")
-	ErrProjectNotFound  = errors.New("project not found")
-	ErrStatusNotFound   = errors.New("status not found")
-	ErrPriorityNotFound = errors.New("priority not found")
-	ErrUserNotFound     = errors.New("user not found")
-	ErrAssigneeNotFound = errors.New("assignee not found")
 )
 
 type Ticket struct {
@@ -39,75 +25,6 @@ type Ticket struct {
 	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 }
 
-func validateProject(projectID int) error {
-	var exists bool
-
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)", projectID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to validate project: %w", err)
-	}
-	if !exists {
-		return ErrProjectNotFound
-	}
-	return nil
-}
-
-func validateStatus(statusID int) error {
-	var exists bool
-
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM statuses WHERE id = ?)", statusID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to validate status: %w", err)
-	}
-	if !exists {
-		return ErrStatusNotFound
-	}
-	return nil
-}
-
-func validatePriority(priorityID int) error {
-	var exists bool
-
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM priorities WHERE id = ?)", priorityID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to validate priority: %w", err)
-	}
-	if !exists {
-		return ErrPriorityNotFound
-	}
-	return nil
-}
-
-func validateUser(userID int) error {
-	var exists bool
-
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)", userID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to validate user: %w", err)
-	}
-	if !exists {
-		return ErrUserNotFound
-	}
-	return nil
-}
-
-func validateAssignee(assigneeID *int) error {
-	var exists bool
-
-	if assigneeID == nil {
-		return nil
-	}
-	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)", assigneeID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to validate asignee: %w", err)
-	}
-	if !exists {
-		return ErrAssigneeNotFound
-	}
-	return nil
-}
-
-// Created an interface Scanner which is anything that has a Scan function
 func scanTicket(s Scanner) (*Ticket, error) {
 	var t Ticket
 	err := s.Scan(
@@ -128,7 +45,8 @@ func scanTicket(s Scanner) (*Ticket, error) {
 	return &t, err
 }
 
-func GetAllTickets() ([]Ticket, error) {
+// Unused
+func GetTickets() ([]Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
 		       status_id, priority_id, position, assignee_id, created_by,
@@ -161,7 +79,7 @@ func GetAllTickets() ([]Ticket, error) {
 	return tickets, nil
 }
 
-func GetTicketByID(id int) (*Ticket, error) {
+func GetTicket(id int) (*Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
 		       status_id, priority_id, position, assignee_id, created_by,
@@ -181,7 +99,7 @@ func GetTicketByID(id int) (*Ticket, error) {
 	return t, nil
 }
 
-func GetTicketsByProjectID(projectID int) ([]Ticket, error) {
+func ListProjectTickets(projectID int) ([]Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
 		       status_id, priority_id, position, assignee_id, created_by,
@@ -250,7 +168,7 @@ func CreateTicket(projectID int, title, description string, statusID, priorityID
 		return nil, fmt.Errorf("failed to get insert id: %w", err)
 	}
 
-	return GetTicketByID(int(id))
+	return GetTicket(int(id))
 }
 
 func UpdateTicket(id int, title, description *string, statusID, priorityID, assigneeID *int) (*Ticket, error) {
@@ -292,7 +210,10 @@ func UpdateTicket(id int, title, description *string, statusID, priorityID, assi
 		args = append(args, *assigneeID)
 	}
 
-	query := fmt.Sprintf("UPDATE tickets SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL", strings.Join(updates, ", "))
+	query := fmt.Sprintf(
+		"UPDATE tickets SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL",
+		strings.Join(updates, ", "),
+	)
 	args = append(args, id)
 
 	result, err := db.DB.Exec(query, args...)
@@ -308,7 +229,7 @@ func UpdateTicket(id int, title, description *string, statusID, priorityID, assi
 		return nil, ErrTicketNotFound
 	}
 
-	return GetTicketByID(id)
+	return GetTicket(id)
 }
 
 func DeleteTicket(id int) error {
@@ -334,6 +255,7 @@ func DeleteTicket(id int) error {
 	return nil
 }
 
+// Unused
 func HardDeleteTicket(id int) error {
 	query := "DELETE FROM tickets WHERE id = ?"
 

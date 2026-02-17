@@ -7,23 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func GetTickets(c *fiber.Ctx) error {
-	projectId, err := c.ParamsInt("id")
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid project ID",
-		})
-	}
-
-	tickets, err := models.GetTicketsByProjectID(projectId)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	return c.JSON(tickets)
-}
+// Tickets
 
 func GetTicket(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
@@ -33,7 +17,7 @@ func GetTicket(c *fiber.Ctx) error {
 		})
 	}
 
-	ticket, err := models.GetTicketByID(id)
+	ticket, err := models.GetTicket(id)
 	if err != nil {
 		if errors.Is(err, models.ErrTicketNotFound) {
 			return c.Status(404).JSON(fiber.Map{
@@ -48,7 +32,27 @@ func GetTicket(c *fiber.Ctx) error {
 	return c.JSON(ticket)
 }
 
-func CreateTicket(c *fiber.Ctx) error {
+// Project Tickets
+
+func ListProjectTickets(c *fiber.Ctx) error {
+	projectId, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid project ID",
+		})
+	}
+
+	tickets, err := models.ListProjectTickets(projectId)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(tickets)
+}
+
+func CreateProjectTicket(c *fiber.Ctx) error {
 	projectId, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{
@@ -141,6 +145,8 @@ func CreateTicket(c *fiber.Ctx) error {
 	return c.Status(201).JSON(ticket)
 }
 
+// Shared Ticket Operations
+
 func UpdateTicket(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
@@ -166,11 +172,14 @@ func UpdateTicket(c *fiber.Ctx) error {
 	if req.Title == nil && req.Description == nil && req.StatusID == nil && req.PriorityID == nil && req.AssigneeID == nil {
 		return c.Status(400).JSON(fiber.Map{"error": "No fields to update"})
 	}
-	if req.Title != nil && *req.Title == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Title cannot be empty"})
-	}
-	if req.Title != nil && len(*req.Title) > 200 {
-		return c.Status(400).JSON(fiber.Map{"error": "Title too long"})
+
+	if req.Title != nil {
+		if *req.Title == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "Title cannot be empty"})
+		}
+		if len(*req.Title) > 200 {
+			return c.Status(400).JSON(fiber.Map{"error": "Title too long"})
+		}
 	}
 	if req.StatusID != nil && *req.StatusID == 0 {
 		return c.Status(400).JSON(fiber.Map{"error": "Status ID cannot be 0"})
