@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/MilindShekhawat/ticker/internal/db"
 )
@@ -16,6 +17,8 @@ var (
 	ErrUserNotFound       = errors.New("user not found")
 	ErrAssigneeNotFound   = errors.New("assignee not found")
 	ErrDuplicateKeyPrefix = errors.New("key prefix already exists")
+	ErrTagNotFound        = errors.New("tag not found")
+	ErrUserPrefsNotFound  = errors.New("user preferences not found")
 )
 
 // Scanner is an interface for anything that can Scan (sql.Row, sql.Rows, etc.)
@@ -100,6 +103,17 @@ func ValidateKeyPrefix(keyPrefix string) error {
 	}
 	if exists {
 		return ErrDuplicateKeyPrefix
+	}
+	return nil
+}
+
+func validateColor(color string) error {
+	if color == "" {
+		return nil // Allow empty, will use default
+	}
+	matched, _ := regexp.MatchString(`^#[0-9A-Fa-f]{6}$`, color)
+	if !matched {
+		return fmt.Errorf("invalid color format: must be #RRGGBB")
 	}
 	return nil
 }
