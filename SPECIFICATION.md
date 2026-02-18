@@ -26,7 +26,7 @@ A lightweight, self deployable, project management system. Organize work into pr
 1. Opens application
 2. Creates account (email + password)
 3. Lands on empty dashboard
-4. Creates first project
+4. Creates first project (must select/create at least 1 status and 1 priority)
 5. Adds tickets to project
 6. Chooses view (table or kanban)
 
@@ -281,10 +281,13 @@ label             TEXT     [NOT NULL]
 color             TEXT     [DEFAULT '#808080']
 position          INTEGER  [DEFAULT 0]
 created_at        DATETIME [DEFAULT CURRENT_TIMESTAMP]
+updated_at        DATETIME [DEFAULT CURRENT_TIMESTAMP]
+deleted_at        DATETIME [NULL]
 
 Indexes:
   idx_statuses_project_label (project_id, label) UNIQUE
   idx_statuses_project (project_id)
+  idx_statuses_position (position)
 ```
 
 **priorities**
@@ -295,10 +298,13 @@ label             TEXT     [NOT NULL]
 color             TEXT     [DEFAULT '#808080']
 position          INTEGER  [DEFAULT 0]
 created_at        DATETIME [DEFAULT CURRENT_TIMESTAMP]
+updated_at        DATETIME [DEFAULT CURRENT_TIMESTAMP]
+deleted_at        DATETIME [NULL]
 
 Indexes:
   idx_priorities_project_label (project_id, label) UNIQUE
   idx_priorities_project (project_id)
+  idx_priorities_position (position)
 ```
 
 **tags**
@@ -308,6 +314,8 @@ project_id        INTEGER  [FK → projects.id, NULL]  // NULL = global
 label             TEXT     [NOT NULL]
 color             TEXT     [DEFAULT '#808080']
 created_at        DATETIME [DEFAULT CURRENT_TIMESTAMP]
+updated_at        DATETIME [DEFAULT CURRENT_TIMESTAMP]
+deleted_at        DATETIME [NULL]
 
 Indexes:
   idx_tags_project_label (project_id, label) UNIQUE
@@ -396,10 +404,10 @@ Indexes:
 - Users can belong to multiple projects via `project_members`
 - Projects have unique key prefixes (e.g., "TICK", "BUG")
 - Tickets are numbered sequentially per project (not globally)
-- Statuses and tags can be project-specific or global (`project_id = NULL`)
+- Global items (statuses, priorities, tags) are templates only, projects create independent copies
 - Tickets can have multiple tags via `ticket_tags` junction table
 - All activity on tickets is logged in `ticket_activity`
-- Soft deletes via `deleted_at` for tickets, comments, and projects
+- Soft deletes via `deleted_at` for tickets, comments, projects, statuses, priorities, and tags
 
 ---
 
@@ -451,8 +459,9 @@ GET    /api/v1/statuses                 → List global statuses
 POST   /api/v1/statuses                 → Create global status
 PATCH  /api/v1/statuses/:id             → Update status
 DELETE /api/v1/statuses/:id             → Delete status
-GET    /api/v1/projects/:id/statuses    → List project statuses + globals
-POST   /api/v1/projects/:id/statuses    → Create project-specific status
+GET    /api/v1/projects/:id/statuses    → List project statuses
+POST   /api/v1/projects/:id/statuses    → Create project status
+PATCH  /api/v1/statuses/:id/position    → Update status position
 ```
 
 ### Priorities
@@ -462,19 +471,23 @@ GET    /api/v1/priorities               → List global priorities
 POST   /api/v1/priorities               → Create global priority
 PATCH  /api/v1/priorities/:id           → Update priority
 DELETE /api/v1/priorities/:id           → Delete priority
-GET    /api/v1/projects/:id/priorities  → List project priorities + globals
-POST   /api/v1/projects/:id/priorities  → Create project-specific priority
+GET    /api/v1/projects/:id/priorities  → List project priorities
+POST   /api/v1/projects/:id/priorities  → Create project priority
+PATCH  /api/v1/priorities/:id/position  → Update priority position
 ```
 
 ### Tags
 
 ```
-GET    /api/v1/tags                 → List global tags
-POST   /api/v1/tags                 → Create global tag
-PATCH  /api/v1/tags/:id             → Update tag
-DELETE /api/v1/tags/:id             → Delete tag
-GET    /api/v1/projects/:id/tags    → List project tags + globals
-POST   /api/v1/projects/:id/tags    → Create project-specific tag
+GET    /api/v1/tags                     → List global tags
+POST   /api/v1/tags                     → Create global tag
+PATCH  /api/v1/tags/:id                 → Update tag
+DELETE /api/v1/tags/:id                 → Delete tag
+GET    /api/v1/projects/:id/tags        → List project tags
+POST   /api/v1/projects/:id/tags        → Create project tag
+GET    /api/v1/tickets/:id/tags         → List tags assigned to ticket
+POST   /api/v1/tickets/:id/tags         → Add tag to ticket
+DELETE /api/v1/tickets/:id/tags/:tag_id → Remove tag from ticket
 ```
 
 ### Comments
