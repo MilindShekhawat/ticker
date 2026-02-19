@@ -7,8 +7,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Tickets
-
 func GetTicket(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
@@ -31,8 +29,6 @@ func GetTicket(c *fiber.Ctx) error {
 
 	return c.JSON(ticket)
 }
-
-// Project Tickets
 
 func ListProjectTickets(c *fiber.Ctx) error {
 	projectId, err := c.ParamsInt("id")
@@ -67,6 +63,7 @@ func CreateProjectTicket(c *fiber.Ctx) error {
 		PriorityID  int    `json:"priority_id"`
 		CreatedBy   int    `json:"created_by"`
 		AssigneeID  *int   `json:"assignee_id"`
+		TagIDs      []int  `json:"tag_ids,omitempty"` // Optional tags
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -75,6 +72,7 @@ func CreateProjectTicket(c *fiber.Ctx) error {
 		})
 	}
 
+	// Validation
 	if req.Title == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Title is required",
@@ -101,6 +99,7 @@ func CreateProjectTicket(c *fiber.Ctx) error {
 		})
 	}
 
+	// Create ticket
 	ticket, err := models.CreateTicket(
 		projectId,
 		req.Title,
@@ -142,10 +141,13 @@ func CreateProjectTicket(c *fiber.Ctx) error {
 		})
 	}
 
+	// Add tags if provided (best effort - don't fail if tag add fails)
+	for _, tagID := range req.TagIDs {
+		_ = models.AddTagToTicket(ticket.ID, tagID)
+	}
+
 	return c.Status(201).JSON(ticket)
 }
-
-// Shared Ticket Operations
 
 func UpdateTicket(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
@@ -161,6 +163,7 @@ func UpdateTicket(c *fiber.Ctx) error {
 		StatusID    *int    `json:"status_id"`
 		PriorityID  *int    `json:"priority_id"`
 		AssigneeID  *int    `json:"assignee_id"`
+		TagIDs      *[]int  `json:"tag_ids"` // Optional: if provided, replace all tags
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -169,10 +172,13 @@ func UpdateTicket(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Title == nil && req.Description == nil && req.StatusID == nil && req.PriorityID == nil && req.AssigneeID == nil {
+	// Check if anything to update
+	if req.Title == nil && req.Description == nil && req.StatusID == nil &&
+		req.PriorityID == nil && req.AssigneeID == nil && req.TagIDs == nil {
 		return c.Status(400).JSON(fiber.Map{"error": "No fields to update"})
 	}
 
+	// Validate fields
 	if req.Title != nil {
 		if *req.Title == "" {
 			return c.Status(400).JSON(fiber.Map{"error": "Title cannot be empty"})
@@ -188,6 +194,7 @@ func UpdateTicket(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Priority ID cannot be 0"})
 	}
 
+	// Update ticket
 	ticket, err := models.UpdateTicket(id, req.Title, req.Description, req.StatusID, req.PriorityID, req.AssigneeID)
 	if err != nil {
 		if errors.Is(err, models.ErrTicketNotFound) {
@@ -213,6 +220,23 @@ func UpdateTicket(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	}
+
+	// Update tags if provided (replace all tags)
+	if req.TagIDs != nil {
+		// Get current tags
+		currentTags, err := models.GetTagsByTicket(id)
+		if err == nil {
+			// Remove all current tags
+			for _, tag := range currentTags {
+				_ = models.RemoveTagFromTicket(id, tag.ID)
+			}
+		}
+
+		// Add new tags
+		for _, tagID := range *req.TagIDs {
+			_ = models.AddTagToTicket(id, tagID)
+		}
 	}
 
 	return c.JSON(ticket)

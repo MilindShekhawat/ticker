@@ -194,7 +194,7 @@ func DeleteTag(id int) error {
 
 // Ticket Tags Operations
 
-func GetTagsByTicketID(ticketID int) ([]Tag, error) {
+func GetTagsByTicket(ticketID int) ([]Tag, error) {
 	query := `
 		SELECT t.id, t.project_id, t.label, t.color, t.created_at, t.updated_at, t.deleted_at
 		FROM tags t
