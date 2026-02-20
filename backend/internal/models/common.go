@@ -19,6 +19,7 @@ var (
 	ErrDuplicateKeyPrefix = errors.New("key prefix already exists")
 	ErrTagNotFound        = errors.New("tag not found")
 	ErrUserPrefsNotFound  = errors.New("user preferences not found")
+	ErrCommentNotFound    = errors.New("comment not found")
 )
 
 // Scanner is an interface for anything that can Scan (sql.Row, sql.Rows, etc.)
@@ -64,6 +65,19 @@ func validateProject(projectID int) error {
 	}
 	if !exists {
 		return ErrProjectNotFound
+	}
+	return nil
+}
+
+func validateTicket(ticketID int) error {
+	var exists bool
+
+	err := db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tickets WHERE id = ? AND deleted_at IS NULL)", ticketID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to validate ticket: %w", err)
+	}
+	if !exists {
+		return ErrTicketNotFound
 	}
 	return nil
 }

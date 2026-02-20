@@ -57,6 +57,12 @@ func Routes(app *fiber.App) {
 	// Shared operations
 	api.Patch("/tags/:id", handlers.UpdateTag)
 	api.Delete("/tags/:id", handlers.DeleteTag)
+
+	// Comments
+	api.Get("/tickets/:id/comments", handlers.ListComments)
+	api.Post("/tickets/:id/comments", handlers.CreateComment)
+	api.Patch("/comments/:id", handlers.UpdateComment)
+	api.Delete("/comments/:id", handlers.DeleteComment)
 }
 
 func healthCheck(c *fiber.Ctx) error {
