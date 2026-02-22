@@ -93,21 +93,43 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 		return nil, err
 	}
 
-	query := `
-		INSERT INTO projects (name, description, key_prefix, created_by)
-		VALUES (?, ?, ?, ?)
-	`
-	result, err := db.DB.Exec(query, name, description, keyPrefix, createdBy)
+	tx, err := db.DB.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create project: %w", err)
+		return nil, err
 	}
 
-	id, err := result.LastInsertId()
+	result, err := tx.Exec(
+		`INSERT INTO projects (name, description, key_prefix, created_by)
+		 VALUES (?, ?, ?, ?)`,
+		name, description, keyPrefix, createdBy,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get insert id: %w", err)
+		tx.Rollback()
+		return nil, err
 	}
 
-	return GetProjectByID(int(id))
+	projectID, err := result.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Insert owner membership
+	_, err = tx.Exec(
+		`INSERT INTO project_members (project_id, user_id, role)
+		 VALUES (?, ?, ?)`,
+		projectID, createdBy, RoleOwner,
+	)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return GetProjectByID(int(projectID))
 }
 
 func UpdateProject(id int, name, description *string) (*Project, error) {
