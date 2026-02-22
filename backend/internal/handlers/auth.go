@@ -56,7 +56,10 @@ func Login(c *fiber.Ctx) error {
 
 	user, err := models.AuthenticateUser(req.Email, req.Password)
 	if err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+		if errors.Is(err, models.ErrInvalidCredentials) {
+			return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+		}
+		return c.SendStatus(500)
 	}
 
 	if err := createSessionAndSetCookie(c, user.ID); err != nil {
@@ -68,8 +71,12 @@ func Login(c *fiber.Ctx) error {
 
 func Logout(c *fiber.Ctx) error {
 	sessionID := c.Cookies("session_id")
+
 	if sessionID != "" {
-		_ = models.RevokeSession(sessionID)
+		err := models.RevokeSession(sessionID)
+		if err != nil && !errors.Is(err, models.ErrInvalidSession) {
+			return c.SendStatus(500)
+		}
 	}
 
 	c.ClearCookie("session_id")

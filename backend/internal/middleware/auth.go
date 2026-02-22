@@ -1,23 +1,29 @@
 package middleware
 
 import (
+	"errors"
+
 	"github.com/MilindShekhawat/ticker/internal/models"
 	"github.com/gofiber/fiber/v2"
 )
 
+const contextUserKey = "user"
+
 func AuthRequired(c *fiber.Ctx) error {
 	sessionID := c.Cookies("session_id")
 	if sessionID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+		return c.SendStatus(401)
 	}
 
 	user, err := models.ValidateSession(sessionID)
 	if err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid session"})
+		if errors.Is(err, models.ErrInvalidSession) {
+			c.ClearCookie("session_id")
+			return c.SendStatus(401)
+		}
+		return c.SendStatus(500)
 	}
 
-	c.Locals("user", user)
-	c.Locals("user_id", user.ID)
-
+	c.Locals(contextUserKey, user)
 	return c.Next()
 }
