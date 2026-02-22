@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/MilindShekhawat/ticker/internal/handlers"
+	"github.com/MilindShekhawat/ticker/internal/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -11,61 +12,69 @@ func Routes(app *fiber.App) {
 
 	// API v1 routes
 	api := app.Group("/api/v1")
+	protected := api.Group("", middleware.AuthRequired)
+
+	// Public Auth
+	api.Post("/auth/signup", handlers.Signup)
+	api.Post("/auth/login", handlers.Login)
+	// Protected Auth
+	protected.Post("/auth/logout", handlers.Logout)
+	protected.Get("/auth/me", handlers.GetCurrentUser)
 
 	// Projects
-	api.Get("/projects", handlers.ListProjects)
-	api.Post("/projects", handlers.CreateProject)
-	api.Get("/projects/:id", handlers.GetProject)
-	api.Patch("/projects/:id", handlers.UpdateProject)
-	api.Delete("/projects/:id", handlers.DeleteProject)
+	protected.Get("/projects", handlers.ListProjects)
+	protected.Post("/projects", handlers.CreateProject)
+	protected.Get("/projects/:id", handlers.GetProject)
+	protected.Patch("/projects/:id", handlers.UpdateProject)
+	protected.Delete("/projects/:id", handlers.DeleteProject)
 
 	// Tickets
-	api.Get("/tickets/:id", handlers.GetTicket)
-	api.Get("/projects/:id/tickets", handlers.ListProjectTickets)
-	api.Post("/projects/:id/tickets", handlers.CreateProjectTicket)
-	api.Patch("/tickets/:id", handlers.UpdateTicket)
-	api.Delete("/tickets/:id", handlers.DeleteTicket)
+	protected.Get("/projects/:id/tickets", handlers.ListProjectTickets)
+	protected.Post("/projects/:id/tickets", handlers.CreateProjectTicket)
+	protected.Get("/tickets/:id", handlers.GetTicket)
+	protected.Patch("/tickets/:id", handlers.UpdateTicket)
+	protected.Delete("/tickets/:id", handlers.DeleteTicket)
 
 	// Global priorities
-	api.Get("/priorities", handlers.ListPriorities)
-	api.Post("/priorities", handlers.CreatePriority)
+	protected.Get("/priorities", handlers.ListPriorities)
+	protected.Post("/priorities", handlers.CreatePriority)
 	// Project priorities
-	api.Get("/projects/:id/priorities", handlers.ListPriorities)
-	api.Post("/projects/:id/priorities", handlers.CreatePriority)
+	protected.Get("/projects/:id/priorities", handlers.ListPriorities)
+	protected.Post("/projects/:id/priorities", handlers.CreatePriority)
 	// Shared operations
-	api.Patch("/priorities/:id", handlers.UpdatePriority)
-	api.Patch("/priorities/:id/position", handlers.UpdatePriorityPosition)
-	api.Delete("/priorities/:id", handlers.DeletePriority)
+	protected.Patch("/priorities/:id", handlers.UpdatePriority)
+	protected.Patch("/priorities/:id/position", handlers.UpdatePriorityPosition)
+	protected.Delete("/priorities/:id", handlers.DeletePriority)
 
 	// Global statuses
-	api.Get("/statuses", handlers.ListStatuses)
-	api.Post("/statuses", handlers.CreateStatus)
+	protected.Get("/statuses", handlers.ListStatuses)
+	protected.Post("/statuses", handlers.CreateStatus)
 	// Project statuses
-	api.Get("/projects/:id/statuses", handlers.ListStatuses)
-	api.Post("/projects/:id/statuses", handlers.CreateStatus)
+	protected.Get("/projects/:id/statuses", handlers.ListStatuses)
+	protected.Post("/projects/:id/statuses", handlers.CreateStatus)
 	// Shared operations
-	api.Patch("/statuses/:id", handlers.UpdateStatus)
-	api.Patch("/statuses/:id/position", handlers.UpdateStatusPosition)
-	api.Delete("/statuses/:id", handlers.DeleteStatus)
+	protected.Patch("/statuses/:id", handlers.UpdateStatus)
+	protected.Patch("/statuses/:id/position", handlers.UpdateStatusPosition)
+	protected.Delete("/statuses/:id", handlers.DeleteStatus)
 
 	// Global tags
-	api.Get("/tags", handlers.ListTags)
-	api.Post("/tags", handlers.CreateTag)
+	protected.Get("/tags", handlers.ListTags)
+	protected.Post("/tags", handlers.CreateTag)
 	// Project tags
-	api.Get("/projects/:id/tags", handlers.ListTags)
-	api.Post("/projects/:id/tags", handlers.CreateTag)
+	protected.Get("/projects/:id/tags", handlers.ListTags)
+	protected.Post("/projects/:id/tags", handlers.CreateTag)
 	// Shared operations
-	api.Patch("/tags/:id", handlers.UpdateTag)
-	api.Delete("/tags/:id", handlers.DeleteTag)
+	protected.Patch("/tags/:id", handlers.UpdateTag)
+	protected.Delete("/tags/:id", handlers.DeleteTag)
 
 	// Comments
-	api.Get("/tickets/:id/comments", handlers.ListComments)
-	api.Post("/tickets/:id/comments", handlers.CreateComment)
-	api.Patch("/comments/:id", handlers.UpdateComment)
-	api.Delete("/comments/:id", handlers.DeleteComment)
+	protected.Get("/tickets/:id/comments", handlers.ListComments)
+	protected.Post("/tickets/:id/comments", handlers.CreateComment)
+	protected.Patch("/comments/:id", handlers.UpdateComment)
+	protected.Delete("/comments/:id", handlers.DeleteComment)
 
 	// Activity
-	api.Get("/tickets/:id/activity", handlers.GetTicketActivity)
+	protected.Get("/tickets/:id/activity", handlers.GetTicketActivity)
 }
 
 func healthCheck(c *fiber.Ctx) error {

@@ -20,6 +20,8 @@ var (
 	ErrTagNotFound        = errors.New("tag not found")
 	ErrUserPrefsNotFound  = errors.New("user preferences not found")
 	ErrCommentNotFound    = errors.New("comment not found")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrEmailExists        = errors.New("email already exists")
 )
 
 // Scanner is an interface for anything that can Scan (sql.Row, sql.Rows, etc.)
