@@ -63,6 +63,9 @@ func Routes(app *fiber.App) {
 	api.Post("/tickets/:id/comments", handlers.CreateComment)
 	api.Patch("/comments/:id", handlers.UpdateComment)
 	api.Delete("/comments/:id", handlers.DeleteComment)
+
+	// Activity
+	api.Get("/tickets/:id/activity", handlers.GetTicketActivity)
 }
 
 func healthCheck(c *fiber.Ctx) error {
