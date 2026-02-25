@@ -2,7 +2,9 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/MilindShekhawat/ticker/internal/db"
@@ -70,7 +72,7 @@ func GetComment(id int) (*Comment, error) {
 	`
 
 	c, err := scanComment(db.DB.QueryRow(query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrCommentNotFound
 	}
 	if err != nil {
@@ -81,10 +83,14 @@ func GetComment(id int) (*Comment, error) {
 }
 
 func CreateComment(ticketID, authorID int, body string) (*Comment, error) {
-	if err := validateTicket(ticketID); err != nil {
+	if strings.TrimSpace(body) == "" {
+		return nil, ErrInvalidCommentBody
+	}
+
+	if err := doesTicketExists(ticketID); err != nil {
 		return nil, err
 	}
-	if err := validateUser(authorID); err != nil {
+	if err := doesUserExists(authorID); err != nil {
 		return nil, err
 	}
 

@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -86,7 +87,7 @@ func GetStatus(id int) (*Status, error) {
 	`
 
 	st, err := scanStatus(db.DB.QueryRow(query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrStatusNotFound
 	}
 	if err != nil {
@@ -97,12 +98,12 @@ func GetStatus(id int) (*Status, error) {
 }
 
 func CreateStatus(projectID *int, label, color string) (*Status, error) {
-	if err := validateColor(color); err != nil {
+	if err := isValidColor(color); err != nil {
 		return nil, err
 	}
 
 	if projectID != nil {
-		if err := validateProject(*projectID); err != nil {
+		if err := doesProjectExists(*projectID); err != nil {
 			return nil, err
 		}
 	}
@@ -155,7 +156,7 @@ func UpdateStatus(id int, label, color *string) (*Status, error) {
 		args = append(args, *label)
 	}
 	if color != nil {
-		if err := validateColor(*color); err != nil {
+		if err := isValidColor(*color); err != nil {
 			return nil, err
 		}
 		updates = append(updates, "color = ?")

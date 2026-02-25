@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -75,7 +76,7 @@ func GetProjectByID(id int) (*Project, error) {
 	`
 
 	p, err := scanProject(db.DB.QueryRow(query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrProjectNotFound
 	}
 	if err != nil {
@@ -86,10 +87,10 @@ func GetProjectByID(id int) (*Project, error) {
 }
 
 func CreateProject(name, description, keyPrefix string, createdBy int) (*Project, error) {
-	if err := validateUser(createdBy); err != nil {
+	if err := doesUserExists(createdBy); err != nil {
 		return nil, err
 	}
-	if err := ValidateKeyPrefix(keyPrefix); err != nil {
+	if err := doesKeyPrefixExists(keyPrefix); err != nil {
 		return nil, err
 	}
 

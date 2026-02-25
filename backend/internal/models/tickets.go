@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -89,7 +90,7 @@ func GetTicket(id int) (*Ticket, error) {
 	`
 
 	t, err := scanTicket(db.DB.QueryRow(query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrTicketNotFound
 	}
 	if err != nil {
@@ -132,19 +133,19 @@ func ListProjectTickets(projectID int) ([]Ticket, error) {
 }
 
 func CreateTicket(projectID int, title, description string, statusID, priorityID, createdBy int, assigneeID *int) (*Ticket, error) {
-	if err := validateProject(projectID); err != nil {
+	if err := doesProjectExists(projectID); err != nil {
 		return nil, err
 	}
-	if err := validateStatus(statusID); err != nil {
+	if err := doesStatusExists(statusID); err != nil {
 		return nil, err
 	}
-	if err := validatePriority(priorityID); err != nil {
+	if err := doesPriorityExists(priorityID); err != nil {
 		return nil, err
 	}
-	if err := validateUser(createdBy); err != nil {
+	if err := doesUserExists(createdBy); err != nil {
 		return nil, err
 	}
-	if err := validateAssignee(assigneeID); err != nil {
+	if err := doesAssigneeExists(assigneeID); err != nil {
 		return nil, err
 	}
 
@@ -173,16 +174,16 @@ func CreateTicket(projectID int, title, description string, statusID, priorityID
 
 func UpdateTicket(id int, title, description *string, statusID, priorityID, assigneeID *int) (*Ticket, error) {
 	if statusID != nil {
-		if err := validateStatus(*statusID); err != nil {
+		if err := doesStatusExists(*statusID); err != nil {
 			return nil, err
 		}
 	}
 	if priorityID != nil {
-		if err := validatePriority(*priorityID); err != nil {
+		if err := doesPriorityExists(*priorityID); err != nil {
 			return nil, err
 		}
 	}
-	if err := validateAssignee(assigneeID); err != nil {
+	if err := doesAssigneeExists(assigneeID); err != nil {
 		return nil, err
 	}
 

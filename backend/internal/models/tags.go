@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -84,7 +85,7 @@ func GetTag(id int) (*Tag, error) {
 	`
 
 	t, err := scanTag(db.DB.QueryRow(query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrTagNotFound
 	}
 	if err != nil {
@@ -95,12 +96,12 @@ func GetTag(id int) (*Tag, error) {
 }
 
 func CreateTag(projectID *int, label, color string) (*Tag, error) {
-	if err := validateColor(color); err != nil {
+	if err := isValidColor(color); err != nil {
 		return nil, err
 	}
 
 	if projectID != nil {
-		if err := validateProject(*projectID); err != nil {
+		if err := doesProjectExists(*projectID); err != nil {
 			return nil, err
 		}
 	}
@@ -136,7 +137,7 @@ func UpdateTag(id int, label, color *string) (*Tag, error) {
 		args = append(args, *label)
 	}
 	if color != nil {
-		if err := validateColor(*color); err != nil {
+		if err := isValidColor(*color); err != nil {
 			return nil, err
 		}
 		updates = append(updates, "color = ?")

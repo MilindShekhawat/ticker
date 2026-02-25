@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -86,7 +87,7 @@ func GetPriority(id int) (*Priority, error) {
 	`
 
 	p, err := scanPriority(db.DB.QueryRow(query, id))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrPriorityNotFound
 	}
 	if err != nil {
@@ -97,12 +98,12 @@ func GetPriority(id int) (*Priority, error) {
 }
 
 func CreatePriority(projectID *int, label, color string) (*Priority, error) {
-	if err := validateColor(color); err != nil {
+	if err := isValidColor(color); err != nil {
 		return nil, err
 	}
 
 	if projectID != nil {
-		if err := validateProject(*projectID); err != nil {
+		if err := doesProjectExists(*projectID); err != nil {
 			return nil, err
 		}
 	}
@@ -155,7 +156,7 @@ func UpdatePriority(id int, label, color *string) (*Priority, error) {
 		args = append(args, *label)
 	}
 	if color != nil {
-		if err := validateColor(*color); err != nil {
+		if err := isValidColor(*color); err != nil {
 			return nil, err
 		}
 		updates = append(updates, "color = ?")

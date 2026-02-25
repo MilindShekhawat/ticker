@@ -88,10 +88,10 @@ func ListActivityByTicket(ticketID int) ([]TicketActivity, error) {
 
 func CreateActivity(ticketID, actorID, activityType int, metadata map[string]interface{}) error {
 	// Validate ticket and actor
-	if err := validateTicket(ticketID); err != nil {
+	if err := doesTicketExists(ticketID); err != nil {
 		return err
 	}
-	if err := validateUser(actorID); err != nil {
+	if err := doesUserExists(actorID); err != nil {
 		return err
 	}
 
