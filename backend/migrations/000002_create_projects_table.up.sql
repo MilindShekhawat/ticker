@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS projects (
 
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
 
     -- Foreign keys
     FOREIGN KEY (created_by) REFERENCES users(id),
@@ -22,4 +21,3 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_projects_creator ON projects(created_by);
 CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at);
-CREATE INDEX IF NOT EXISTS idx_projects_deleted_at ON projects(deleted_at);

@@ -158,7 +158,7 @@ func UpdateProject(c *fiber.Ctx) error {
 		}
 	}
 
-	project, err := models.UpdateProject(id, req.Name, req.Description)
+	project, err := models.UpdateProjectByID(id, req.Name, req.Description)
 	if err != nil {
 		if errors.Is(err, models.ErrProjectNotFound) {
 			return c.Status(404).JSON(fiber.Map{
@@ -181,7 +181,7 @@ func DeleteProject(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := models.DeleteProject(id); err != nil {
+	if err := models.DeleteProjectByID(id); err != nil {
 		if errors.Is(err, models.ErrProjectNotFound) {
 			return c.Status(404).JSON(fiber.Map{
 				"error": "Project not found",

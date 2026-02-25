@@ -11,14 +11,13 @@ import (
 )
 
 type Project struct {
-	ID          int        `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	KeyPrefix   string     `json:"key_prefix"`
-	CreatedBy   int        `json:"created_by"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	KeyPrefix   string    `json:"key_prefix"`
+	CreatedBy   int       `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 func scanProject(s Scanner) (*Project, error) {
@@ -31,56 +30,47 @@ func scanProject(s Scanner) (*Project, error) {
 		&p.CreatedBy,
 		&p.CreatedAt,
 		&p.UpdatedAt,
-		&p.DeletedAt,
 	)
 	return &p, err
 }
 
 func ListProjects() ([]Project, error) {
-	query := `
-		SELECT id, name, description, key_prefix, created_by,
-		       created_at, updated_at, deleted_at
+	rows, err := db.DB.Query(`
+		SELECT id, name, description, key_prefix, created_by, created_at, updated_at
 		FROM projects
-		WHERE deleted_at IS NULL
-		ORDER BY created_at DESC
-	`
-
-	rows, err := db.DB.Query(query)
+		ORDER BY created_at DESC`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query projects: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	projects := []Project{}
+	var projects []Project
 	for rows.Next() {
 		p, err := scanProject(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan project: %w", err)
+			return nil, err
 		}
 		projects = append(projects, *p)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating projects: %w", err)
+		return nil, err
 	}
 
 	return projects, nil
 }
 
 func GetProjectByID(id int) (*Project, error) {
-	query := `
-		SELECT id, name, description, key_prefix, created_by,
-		       created_at, updated_at, deleted_at
+	p, err := scanProject(db.DB.QueryRow(`
+		SELECT id, name, description, key_prefix, created_by, created_at, updated_at
 		FROM projects
-		WHERE id = ? AND deleted_at IS NULL
-	`
-
-	p, err := scanProject(db.DB.QueryRow(query, id))
+		WHERE id = ?`,
+		id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrProjectNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project: %w", err)
+		return nil, err
 	}
 
 	return p, nil
@@ -99,9 +89,9 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 		return nil, err
 	}
 
-	result, err := tx.Exec(
-		`INSERT INTO projects (name, description, key_prefix, created_by)
-		 VALUES (?, ?, ?, ?)`,
+	result, err := tx.Exec(`
+		INSERT INTO projects (name, description, key_prefix, created_by)
+		VALUES (?, ?, ?, ?)`,
 		name, description, keyPrefix, createdBy,
 	)
 	if err != nil {
@@ -115,10 +105,9 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 		return nil, err
 	}
 
-	// Insert owner membership
-	_, err = tx.Exec(
-		`INSERT INTO project_members (project_id, user_id, role)
-		 VALUES (?, ?, ?)`,
+	_, err = tx.Exec(`
+		INSERT INTO project_members (project_id, user_id, role)
+		VALUES (?, ?, ?)`,
 		projectID, createdBy, RoleOwner,
 	)
 	if err != nil {
@@ -133,7 +122,7 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 	return GetProjectByID(int(projectID))
 }
 
-func UpdateProject(id int, name, description *string) (*Project, error) {
+func UpdateProjectByID(id int, name, description *string) (*Project, error) {
 	var updates []string
 	var args []interface{}
 
@@ -146,20 +135,20 @@ func UpdateProject(id int, name, description *string) (*Project, error) {
 		args = append(args, *description)
 	}
 
-	query := fmt.Sprintf(
-		"UPDATE projects SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL",
+	query := fmt.Sprintf(`
+		UPDATE projects SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
 		strings.Join(updates, ", "),
 	)
 	args = append(args, id)
 
 	result, err := db.DB.Exec(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update project: %w", err)
+		return nil, err
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get rows affected: %w", err)
+		return nil, err
 	}
 	if rows == 0 {
 		return nil, ErrProjectNotFound
@@ -168,21 +157,15 @@ func UpdateProject(id int, name, description *string) (*Project, error) {
 	return GetProjectByID(id)
 }
 
-func DeleteProject(id int) error {
-	query := `
-		UPDATE projects
-		SET deleted_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND deleted_at IS NULL
-	`
-
-	result, err := db.DB.Exec(query, id)
+func DeleteProjectByID(id int) error {
+	result, err := db.DB.Exec(`DELETE FROM projects WHERE id = ?`, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete project: %w", err)
+		return err
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return err
 	}
 	if rows == 0 {
 		return ErrProjectNotFound
