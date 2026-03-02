@@ -3,11 +3,22 @@ package models
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/MilindShekhawat/ticker/internal/db"
+)
+
+var (
+	ErrInvalidProject       = errors.New("invalid project")
+	ErrInvalidProjectName   = errors.New("invalid project name")
+	ErrInvalidKeyPrefix     = errors.New("invalid key prefix")
+	ErrInvalidProjectUpdate = errors.New("no fields to update")
+)
+
+const (
+	MaxProjectNameLength = 30
 )
 
 type Project struct {
@@ -34,6 +45,18 @@ func scanProject(s Scanner) (*Project, error) {
 	return &p, err
 }
 
+func isValidKeyPrefix(s string) bool {
+	if s == "" || len(s) > 5 {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsUpper(r) && !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
+}
+
 func ListProjects() ([]Project, error) {
 	rows, err := db.DB.Query(`
 		SELECT id, name, description, key_prefix, created_by, created_at, updated_at
@@ -44,7 +67,7 @@ func ListProjects() ([]Project, error) {
 	}
 	defer rows.Close()
 
-	var projects []Project
+	projects := make([]Project, 0)
 	for rows.Next() {
 		p, err := scanProject(rows)
 		if err != nil {
@@ -52,7 +75,6 @@ func ListProjects() ([]Project, error) {
 		}
 		projects = append(projects, *p)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
@@ -77,6 +99,19 @@ func GetProjectByID(id int) (*Project, error) {
 }
 
 func CreateProject(name, description, keyPrefix string, createdBy int) (*Project, error) {
+	name = strings.TrimSpace(name)
+	keyPrefix = strings.ToUpper(strings.TrimSpace(keyPrefix))
+
+	if name == "" || len(name) > MaxProjectNameLength {
+		return nil, ErrInvalidProjectName
+	}
+	if !isValidKeyPrefix(keyPrefix) {
+		return nil, ErrInvalidKeyPrefix
+	}
+	if createdBy == 0 {
+		return nil, ErrInvalidProject
+	}
+
 	if err := doesUserExists(createdBy); err != nil {
 		return nil, err
 	}
@@ -122,26 +157,35 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 	return GetProjectByID(int(projectID))
 }
 
-func UpdateProjectByID(id int, name, description *string) (*Project, error) {
+func UpdateProject(id int, name, description *string) (*Project, error) {
 	var updates []string
 	var args []interface{}
 
 	if name != nil {
+		n := strings.TrimSpace(*name)
+		if n == "" || len(n) > 30 {
+			return nil, ErrInvalidProjectName
+		}
 		updates = append(updates, "name = ?")
-		args = append(args, *name)
+		args = append(args, n)
 	}
+
 	if description != nil {
 		updates = append(updates, "description = ?")
 		args = append(args, *description)
 	}
 
-	query := fmt.Sprintf(`
-		UPDATE projects SET %s, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		strings.Join(updates, ", "),
-	)
+	if len(updates) == 0 {
+		return nil, ErrInvalidProjectUpdate
+	}
+
 	args = append(args, id)
 
-	result, err := db.DB.Exec(query, args...)
+	result, err := db.DB.Exec(`
+		UPDATE projects
+		SET `+strings.Join(updates, ", ")+`, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`,
+		args...)
 	if err != nil {
 		return nil, err
 	}

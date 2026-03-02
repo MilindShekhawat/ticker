@@ -2,30 +2,15 @@ package handlers
 
 import (
 	"errors"
-	"strings"
-	"unicode"
 
 	"github.com/MilindShekhawat/ticker/internal/models"
 	"github.com/gofiber/fiber/v2"
 )
 
-func isValidKeyPrefix(s string) bool {
-	for _, r := range s {
-		if !unicode.IsUpper(r) && !unicode.IsDigit(r) {
-			return false
-		}
-	}
-	return true
-}
-
-// Projects
-
 func ListProjects(c *fiber.Ctx) error {
 	projects, err := models.ListProjects()
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
 	return c.JSON(projects)
@@ -40,81 +25,45 @@ func CreateProject(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	if req.Name == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Name is required",
-		})
-	}
-	if len(req.Name) > 100 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Name too long (max 100 characters)",
-		})
-	}
-	if req.KeyPrefix == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Key prefix is required",
-		})
-	}
-	if len(req.KeyPrefix) > 5 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Key prefix too long (max 5 characters)",
-		})
-	}
-	if !isValidKeyPrefix(req.KeyPrefix) {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Key prefix must be uppercase letters and numbers only",
-		})
-	}
-	if req.CreatedBy == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Created by is required",
-		})
-	}
-
-	project, err := models.CreateProject(req.Name, req.Description, strings.ToUpper(req.KeyPrefix), req.CreatedBy)
+	project, err := models.CreateProject(
+		req.Name,
+		req.Description,
+		req.KeyPrefix,
+		req.CreatedBy,
+	)
 
 	if err != nil {
-		if errors.Is(err, models.ErrDuplicateKeyPrefix) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Key prefix already exists",
-			})
+		switch {
+		case errors.Is(err, models.ErrInvalidProject),
+			errors.Is(err, models.ErrInvalidProjectName),
+			errors.Is(err, models.ErrInvalidKeyPrefix),
+			errors.Is(err, models.ErrDuplicateKeyPrefix),
+			errors.Is(err, models.ErrUserNotFound):
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+
+		default:
+			return c.SendStatus(fiber.StatusInternalServerError)
 		}
-		if errors.Is(err, models.ErrUserNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid created by user ID",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
 	}
 
-	return c.Status(201).JSON(project)
+	return c.Status(fiber.StatusCreated).JSON(project)
 }
 
 func GetProject(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid project ID",
-		})
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
 	project, err := models.GetProjectByID(id)
 	if err != nil {
 		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Project not found",
-			})
+			return c.SendStatus(fiber.StatusNotFound)
 		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
 	return c.JSON(project)
@@ -123,9 +72,7 @@ func GetProject(c *fiber.Ctx) error {
 func UpdateProject(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid project ID",
-		})
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
 	var req struct {
@@ -134,40 +81,22 @@ func UpdateProject(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	if req.Name == nil && req.Description == nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "No fields to update",
-		})
-	}
-
-	if req.Name != nil {
-		if *req.Name == "" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Name cannot be empty",
-			})
-		}
-		if len(*req.Name) > 100 {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Name too long (max 100 characters)",
-			})
-		}
-	}
-
-	project, err := models.UpdateProjectByID(id, req.Name, req.Description)
+	project, err := models.UpdateProject(id, req.Name, req.Description)
 	if err != nil {
-		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Project not found",
-			})
+		switch {
+		case errors.Is(err, models.ErrInvalidProjectName),
+			errors.Is(err, models.ErrInvalidProjectUpdate):
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+
+		case errors.Is(err, models.ErrProjectNotFound):
+			return c.SendStatus(fiber.StatusNotFound)
+
+		default:
+			return c.SendStatus(fiber.StatusInternalServerError)
 		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
 	}
 
 	return c.JSON(project)
@@ -176,21 +105,15 @@ func UpdateProject(c *fiber.Ctx) error {
 func DeleteProject(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid project ID",
-		})
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
 	if err := models.DeleteProjectByID(id); err != nil {
 		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Project not found",
-			})
+			return c.SendStatus(fiber.StatusNotFound)
 		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
 }
