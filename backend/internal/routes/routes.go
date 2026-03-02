@@ -12,12 +12,13 @@ func Routes(app *fiber.App) {
 
 	// API v1 routes
 	api := app.Group("/api/v1")
-	protected := api.Group("", middleware.AuthRequired)
 
-	// Public Auth
+	// Auth
 	api.Post("/auth/signup", handlers.Signup)
 	api.Post("/auth/login", handlers.Login)
-	// Protected Auth
+
+	protected := api.Group("", middleware.AuthRequired)
+	// Auth
 	protected.Post("/auth/logout", handlers.Logout)
 	protected.Get("/auth/me", handlers.GetCurrentUser)
 

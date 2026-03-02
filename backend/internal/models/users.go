@@ -143,3 +143,12 @@ func isUniqueConstraintError(err error) bool {
 	}
 	return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
 }
+
+func CountUsers() (int, error) {
+	var count int
+	if err := db.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

@@ -24,25 +24,21 @@ func Signup(c *fiber.Ctx) error {
 	var req SignupRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid body"})
 	}
 
-	user, err := models.CreateUser(req.Email, req.Password, req.Name)
+	user, session, err := models.SignupWithSession(
+		req.Email,
+		req.Password,
+		req.Name,
+		c.IP(),
+		string(c.Request().Header.UserAgent()),
+	)
 	if err != nil {
-		if errors.Is(err, models.ErrEmailExists) {
-			return c.Status(400).JSON(fiber.Map{"error": "Email already exists"})
-		}
-		if errors.Is(err, models.ErrInvalidEmail) ||
-			errors.Is(err, models.ErrInvalidPassword) ||
-			errors.Is(err, models.ErrInvalidName) {
-			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-		}
-		return c.SendStatus(500)
+		return handleSignupError(c, err)
 	}
 
-	if err := createSessionAndSetCookie(c, user.ID); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create session"})
-	}
+	setSessionCookie(c, session.ID)
 
 	return c.Status(201).JSON(user)
 }
@@ -51,20 +47,23 @@ func Login(c *fiber.Ctx) error {
 	var req LoginRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid body"})
 	}
 
-	user, err := models.AuthenticateUser(req.Email, req.Password)
+	user, session, err := models.LoginWithSession(
+		req.Email,
+		req.Password,
+		c.IP(),
+		string(c.Request().Header.UserAgent()),
+	)
 	if err != nil {
 		if errors.Is(err, models.ErrInvalidCredentials) {
-			return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email or password"})
 		}
-		return c.SendStatus(500)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Unable to process request"})
 	}
 
-	if err := createSessionAndSetCookie(c, user.ID); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create session"})
-	}
+	setSessionCookie(c, session.ID)
 
 	return c.JSON(user)
 }
@@ -75,40 +74,46 @@ func Logout(c *fiber.Ctx) error {
 	if sessionID != "" {
 		err := models.RevokeSession(sessionID)
 		if err != nil && !errors.Is(err, models.ErrInvalidSession) {
-			return c.SendStatus(500)
+			return c.SendStatus(fiber.StatusInternalServerError)
 		}
 	}
 
 	c.ClearCookie("session_id")
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func GetCurrentUser(c *fiber.Ctx) error {
 	user, ok := c.Locals("user").(*models.User)
 	if !ok {
-		return c.SendStatus(401)
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	return c.JSON(user)
 }
 
-func createSessionAndSetCookie(c *fiber.Ctx, userID int) error {
-	session, err := models.CreateSession(userID, c.IP(), string(c.Request().Header.UserAgent()))
-	if err != nil {
-		return err
-	}
-
+func setSessionCookie(c *fiber.Ctx, sessionID string) {
 	// Local development is HTTP, so Secure cookies must be disabled there.
 	isDevelopment := strings.EqualFold(os.Getenv("ENV"), "development")
 	useSecureCookie := !isDevelopment
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "session_id",
-		Value:    session.ID,
+		Value:    sessionID,
 		HTTPOnly: true,
 		Secure:   useSecureCookie,
 		SameSite: "Lax",
 		Path:     "/",
 	})
+}
 
-	return nil
+func handleSignupError(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, models.ErrEmailExists):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email already in use"})
+	case errors.Is(err, models.ErrInvalidEmail),
+		errors.Is(err, models.ErrInvalidPassword),
+		errors.Is(err, models.ErrInvalidName):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid signup details"})
+	default:
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Unable to process request"})
+	}
 }
