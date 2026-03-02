@@ -37,14 +37,13 @@ var emailRegex = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 const bcryptCost = 12
 
 func GetUserByID(id int) (*User, error) {
-	query := `
+	var u User
+	err := db.DB.QueryRow(`
 		SELECT id, email, name, created_at, updated_at
 		FROM users
-		WHERE id = ?
-	`
-
-	var u User
-	err := db.DB.QueryRow(query, id).Scan(
+		WHERE id = ?`,
+		id,
+	).Scan(
 		&u.ID,
 		&u.Email,
 		&u.Name,
@@ -82,12 +81,11 @@ func CreateUser(email, password, name string) (*User, error) {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	query := `
+	result, err := db.DB.Exec(`
 		INSERT INTO users (email, password_hash, name)
-		VALUES (?, ?, ?)
-	`
-
-	result, err := db.DB.Exec(query, email, string(hash), name)
+		VALUES (?, ?, ?)`,
+		email, string(hash), name,
+	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return nil, ErrEmailExists
@@ -106,14 +104,13 @@ func CreateUser(email, password, name string) (*User, error) {
 func AuthenticateUser(email, password string) (*User, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 
-	query := `
+	var u userWithPassword
+	err := db.DB.QueryRow(`
 		SELECT id, email, name, created_at, updated_at, password_hash
 		FROM users
-		WHERE email = ?
-	`
-
-	var u userWithPassword
-	err := db.DB.QueryRow(query, email).Scan(
+		WHERE email = ?`,
+		email,
+	).Scan(
 		&u.ID,
 		&u.Email,
 		&u.Name,
@@ -136,14 +133,6 @@ func AuthenticateUser(email, password string) (*User, error) {
 	return &u.User, nil
 }
 
-func isUniqueConstraintError(err error) bool {
-	var sqliteErr sqlite3.Error
-	if !errors.As(err, &sqliteErr) {
-		return false
-	}
-	return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
-}
-
 func CountUsers() (int, error) {
 	var count int
 	if err := db.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
@@ -151,4 +140,12 @@ func CountUsers() (int, error) {
 	}
 
 	return count, nil
+}
+
+func isUniqueConstraintError(err error) bool {
+	var sqliteErr sqlite3.Error
+	if !errors.As(err, &sqliteErr) {
+		return false
+	}
+	return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
 }
