@@ -1,10 +1,20 @@
+import { AppFrame } from "../../components/layout/AppFrame";
+
+function Section() {
+    return (
+        <div class="px-3">
+            <p class="text-xs uppercase tracking-wider text-zinc-300">Settings</p>
+        </div>
+    );
+}
+
 export function Settings() {
     return (
-        <div class="min-h-screen bg-gray-50">
-            <div class="max-w-4xl mx-auto px-4 py-8">
-                <h1 class="text-3xl font-bold mb-6">Settings</h1>
-                <p class="text-gray-600">Settings page coming soon...</p>
+        <AppFrame section={<Section />}>
+            <div class="border border-zinc-800 bg-zinc-900 p-6 ">
+                <h1 class="text-lg font-semibold text-zinc-100 mb-2">Settings</h1>
+                <p class="font-mono text-xs text-zinc-400">Settings page coming soon...</p>
             </div>
-        </div>
+        </AppFrame>
     );
 }
