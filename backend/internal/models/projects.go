@@ -159,11 +159,11 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 
 func UpdateProject(id int, name, description *string) (*Project, error) {
 	var updates []string
-	var args []interface{}
+	var args []any
 
 	if name != nil {
 		n := strings.TrimSpace(*name)
-		if n == "" || len(n) > 30 {
+		if n == "" || len(n) > MaxProjectNameLength {
 			return nil, ErrInvalidProjectName
 		}
 		updates = append(updates, "name = ?")

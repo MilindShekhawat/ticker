@@ -92,5 +92,11 @@ export const api = {
         list(options: RequestOptions = {}) {
             return request<Project[]>("/projects", options);
         },
+        create(
+            input: { name: string; description: string; key_prefix: string },
+            options: RequestOptions = {},
+        ) {
+            return request<Project>("/projects", { method: "POST", body: input, ...options });
+        },
     },
 };

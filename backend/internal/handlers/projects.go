@@ -7,6 +7,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type CreateProjectRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	KeyPrefix   string `json:"key_prefix"`
+}
+
+type UpdateProjectRequest struct {
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+}
+
 func ListProjects(c *fiber.Ctx) error {
 	projects, err := models.ListProjects()
 	if err != nil {
@@ -17,12 +28,12 @@ func ListProjects(c *fiber.Ctx) error {
 }
 
 func CreateProject(c *fiber.Ctx) error {
-	var req struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		KeyPrefix   string `json:"key_prefix"`
-		CreatedBy   int    `json:"created_by"`
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
+
+	var req CreateProjectRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
@@ -32,7 +43,7 @@ func CreateProject(c *fiber.Ctx) error {
 		req.Name,
 		req.Description,
 		req.KeyPrefix,
-		req.CreatedBy,
+		user.ID,
 	)
 
 	if err != nil {
@@ -75,10 +86,7 @@ func UpdateProject(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	var req struct {
-		Name        *string `json:"name"`
-		Description *string `json:"description"`
-	}
+	var req UpdateProjectRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
