@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";
 import {
     Card,
@@ -11,7 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { Loader } from "../../components/ui/Loader";
-import { APIError, api } from "../../lib/api";
+import { APIError, api, isAbortError } from "../../lib/api";
 
 type FieldErrors = {
     name?: string;
@@ -44,6 +44,7 @@ function validate(name: string, email: string, password: string): FieldErrors {
 
 export function Signup() {
     const { route } = useLocation();
+    const requestControllerRef = useRef<AbortController | null>(null);
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -59,34 +60,45 @@ export function Signup() {
         event.preventDefault();
         setFormError("");
         setIsSuccess(false);
+        setFormError("");
 
-        const nextErrors = validate(name, email, password);
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const nextErrors = validate(normalizedEmail, email, password);
         setErrors(nextErrors);
-        if (Object.keys(nextErrors).length > 0) {
-            return;
-        }
+        if (Object.keys(nextErrors).length > 0) return;
+
+        requestControllerRef.current?.abort();
+        const controller = new AbortController();
+        requestControllerRef.current = controller;
 
         setIsSubmitting(true);
         try {
-            await api.auth.signup({
-                name: name.trim(),
-                email: email.trim().toLowerCase(),
-                password,
-            });
+            await api.auth.signup(
+                { name: name.trim(), email: normalizedEmail, password },
+                { signal: controller.signal },
+            );
 
             setIsSuccess(true);
             setPassword("");
             setTimeout(() => route("/"), 900);
         } catch (error) {
+            if (isAbortError(error)) return;
+
             if (error instanceof APIError) {
                 setFormError(error.message);
                 return;
             }
+
             setFormError("Could not reach server");
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    useEffect(() => {
+        return () => requestControllerRef.current?.abort();
+    }, []);
 
     return (
         <div class="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center px-4">

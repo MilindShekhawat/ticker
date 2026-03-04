@@ -1,5 +1,4 @@
 export class APIError extends Error {
-    // cast to error
     status: number;
 
     constructor(message: string, status: number) {
@@ -9,7 +8,7 @@ export class APIError extends Error {
     }
 }
 
-// Helps avoid stuff like form data being sent as JSON
+// Helps avoid stuff like formData being sent as JSON
 type RequestOptions = Omit<RequestInit, "body"> & {
     body?: unknown;
 };
@@ -54,6 +53,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return payload as T;
 }
 
+export function isAbortError(error: unknown): boolean {
+    return error instanceof DOMException && error.name === "AbortError";
+}
+
 // Response Types
 export type AuthUser = {
     id: number;
@@ -65,11 +68,14 @@ export type AuthUser = {
 
 export const api = {
     auth: {
-        signup(input: { name: string; email: string; password: string }) {
-            return request<AuthUser>("/auth/signup", { method: "POST", body: input });
+        signup(
+            input: { name: string; email: string; password: string },
+            options: RequestOptions = {},
+        ) {
+            return request<AuthUser>("/auth/signup", { method: "POST", body: input, ...options });
         },
-        login(input: { email: string; password: string }) {
-            return request<AuthUser>("/auth/login", { method: "POST", body: input });
+        login(input: { email: string; password: string }, options: RequestOptions = {}) {
+            return request<AuthUser>("/auth/login", { method: "POST", body: input, ...options });
         },
     },
 };
