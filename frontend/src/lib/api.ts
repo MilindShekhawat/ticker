@@ -66,6 +66,16 @@ export type AuthUser = {
     updated_at: string;
 };
 
+export type Project = {
+    id: number;
+    name: string;
+    description: string;
+    key_prefix: string;
+    created_by: number;
+    created_at: string;
+    updated_at: string;
+};
+
 export const api = {
     auth: {
         signup(
@@ -76,6 +86,11 @@ export const api = {
         },
         login(input: { email: string; password: string }, options: RequestOptions = {}) {
             return request<AuthUser>("/auth/login", { method: "POST", body: input, ...options });
+        },
+    },
+    projects: {
+        list(options: RequestOptions = {}) {
+            return request<Project[]>("/projects", options);
         },
     },
 };

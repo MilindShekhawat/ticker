@@ -7,7 +7,7 @@ import { Playground } from "./pages/playground/Playground";
 import { NotFound } from "./pages/_404";
 import { Login } from "./pages/auth/Login";
 import { Signup } from "./pages/auth/Signup";
-import { ProjectsList } from "./pages/dashboard/ProjectsList";
+import { Projects } from "./pages/dashboard/Projects";
 import { Settings } from "./pages/dashboard/Settings";
 import { KanbanView } from "./pages/project/KanbanView";
 import { TableView } from "./pages/project/TableView";
@@ -25,7 +25,7 @@ export function App() {
                 <Route path="/signup" component={Signup} />
 
                 {/* Dashboard routes */}
-                <Route path="/dashboard/projects" component={ProjectsList} />
+                <Route path="/dashboard/projects" component={Projects} />
                 <Route path="/dashboard/settings" component={Settings} />
 
                 {/* Project routes */}
