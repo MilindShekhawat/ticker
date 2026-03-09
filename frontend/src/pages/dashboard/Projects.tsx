@@ -39,13 +39,15 @@ function Section({ search, sort, onSearch, onSort, onCreate }: SectionProps) {
             <div class="w-36">
                 <Select
                     value={sort}
-                    onChange={(event) => onSort(event.currentTarget.value as SortKey)}
-                    class="h-10 mt-0 px-2 text-xs uppercase tracking-wider">
-                    <option value="newest">newest</option>
-                    <option value="oldest">oldest</option>
-                    <option value="name_asc">name a-z</option>
-                    <option value="name_desc">name z-a</option>
-                </Select>
+                    onChange={(nextValue) => onSort(nextValue as SortKey)}
+                    options={[
+                        { value: "newest", label: "newest" },
+                        { value: "oldest", label: "oldest" },
+                        { value: "name_asc", label: "name a-z" },
+                        { value: "name_desc", label: "name z-a" },
+                    ]}
+                    class="h-10 mt-0 px-2 text-xs uppercase tracking-wider"
+                />
             </div>
 
             <Button

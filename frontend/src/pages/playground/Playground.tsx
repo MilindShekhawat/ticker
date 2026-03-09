@@ -95,6 +95,41 @@ export function Playground() {
                     </div>
                 </section>
 
+                {/* Colors */}
+                <section>
+                    <h2 class={`${styles.sectionHeading}`}>COLORS</h2>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>COLOR PALETTE</CardTitle>
+                            <CardDescription>DESIGN SYSTEM COLORS AND TOKENS</CardDescription>
+                        </CardHeader>
+                        <CardContent class="space-y-6">
+                            {/* Semantic */}
+                            <div>
+                                <h3 class={`${styles.cardContentHeading}`}>SEMANTIC</h3>
+                                <div class="flex flex-wrap gap-3">
+                                    {[
+                                        { token: "primary", bg: "bg-lime-400" },
+                                        { token: "red", bg: "bg-orange-600" },
+                                        { token: "green", bg: "bg-green-500" },
+                                        { token: "yellow", bg: "bg-yellow-500" },
+                                        { token: "blue", bg: "bg-indigo-600" },
+                                        { token: "magenta", bg: "bg-pink-500" },
+                                        { token: "cyan", bg: "bg-cyan-500" },
+                                    ].map(({ token, bg }) => (
+                                        <div class="flex flex-col gap-1.5">
+                                            <div class={`${bg} w-50 h-40 border border-zinc-700`} />
+                                            <span class="text-xs font-bold text-zinc-300 font-mono">
+                                                {token}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </section>
+
                 {/* Buttons */}
                 <section>
                     <h2 class={`${styles.sectionHeading}`}>BUTTONS</h2>
@@ -246,6 +281,7 @@ export function Playground() {
                                     <Badge variant="destructive">bug</Badge>
                                     <Badge variant="purple">feature</Badge>
                                     <Badge variant="blue">enhancement</Badge>
+                                    <Badge variant="pink">pink</Badge>
                                     <Badge variant="warning">urgent</Badge>
                                 </div>
                             </div>

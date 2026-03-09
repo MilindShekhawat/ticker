@@ -1,8 +1,5 @@
+@import "./styles/tokens.css";
 @import "tailwindcss";
-
-:root {
-    color-scheme: dark;
-}
 
 html,
 body {
@@ -11,4 +8,12 @@ body {
 
 body {
     margin: 0;
+    background: var(--color-bg-app);
+    color: var(--color-text-primary);
+}
+
+*,
+*::before,
+*::after {
+    border-color: var(--color-border-default);
 }

@@ -2,7 +2,7 @@ import { InputHTMLAttributes } from "preact";
 import { cva, type VariantProps } from "class-variance-authority";
 
 const inputVariants = cva(
-    `inline-flex w-full h-8 px-4 text-sm mt-1 font-medium border bg-zinc-900 transition outline-none disabled:pointer-events-none disabled:opacity-40`,
+    `inline-flex w-full h-8 px-4 text-sm font-medium border bg-zinc-900 transition outline-none disabled:pointer-events-none disabled:opacity-40`,
     {
         variants: {
             state: {
