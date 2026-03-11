@@ -19,7 +19,12 @@ type UpdateProjectRequest struct {
 }
 
 func ListProjects(c *fiber.Ctx) error {
-	projects, err := models.ListProjects()
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	projects, err := models.ListProjectsByUser(user.ID)
 	if err != nil {
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
@@ -64,12 +69,17 @@ func CreateProject(c *fiber.Ctx) error {
 }
 
 func GetProject(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	project, err := models.GetProjectByID(id)
+	project, err := models.GetProjectByUser(id, user.ID)
 	if err != nil {
 		if errors.Is(err, models.ErrProjectNotFound) {
 			return c.SendStatus(fiber.StatusNotFound)
@@ -81,6 +91,11 @@ func GetProject(c *fiber.Ctx) error {
 }
 
 func UpdateProject(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
@@ -92,7 +107,7 @@ func UpdateProject(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	project, err := models.UpdateProject(id, req.Name, req.Description)
+	project, err := models.UpdateProjectByUser(id, user.ID, req.Name, req.Description)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrInvalidProjectName),
@@ -111,12 +126,17 @@ func UpdateProject(c *fiber.Ctx) error {
 }
 
 func DeleteProject(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	if err := models.DeleteProjectByID(id); err != nil {
+	if err := models.DeleteProjectByUser(id, user.ID); err != nil {
 		if errors.Is(err, models.ErrProjectNotFound) {
 			return c.SendStatus(fiber.StatusNotFound)
 		}

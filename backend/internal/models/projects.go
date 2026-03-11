@@ -57,11 +57,15 @@ func isValidKeyPrefix(s string) bool {
 	return true
 }
 
-func ListProjects() ([]Project, error) {
+func ListProjectsByUser(userID int) ([]Project, error) {
 	rows, err := db.DB.Query(`
-		SELECT id, name, description, key_prefix, created_by, created_at, updated_at
-		FROM projects
-		ORDER BY created_at DESC`)
+		SELECT p.id, p.name, p.description, p.key_prefix, p.created_by, p.created_at, p.updated_at
+		FROM projects p
+		JOIN project_members pm ON pm.project_id = p.id
+		WHERE pm.user_id = ?
+		ORDER BY p.created_at DESC`,
+		userID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +84,25 @@ func ListProjects() ([]Project, error) {
 	}
 
 	return projects, nil
+}
+
+func GetProjectByUser(projectID, userID int) (*Project, error) {
+	p, err := scanProject(db.DB.QueryRow(`
+		SELECT p.id, p.name, p.description, p.key_prefix, p.created_by, p.created_at, p.updated_at
+		FROM projects p
+		JOIN project_members pm ON pm.project_id = p.id
+		WHERE p.id = ? AND pm.user_id = ?`,
+		projectID,
+		userID,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrProjectNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func GetProjectByID(id int) (*Project, error) {
@@ -157,7 +180,7 @@ func CreateProject(name, description, keyPrefix string, createdBy int) (*Project
 	return GetProjectByID(int(projectID))
 }
 
-func UpdateProject(id int, name, description *string) (*Project, error) {
+func UpdateProjectByUser(id, userID int, name, description *string) (*Project, error) {
 	var updates []string
 	var args []any
 
@@ -179,12 +202,17 @@ func UpdateProject(id int, name, description *string) (*Project, error) {
 		return nil, ErrInvalidProjectUpdate
 	}
 
-	args = append(args, id)
+	args = append(args, id, userID)
 
 	result, err := db.DB.Exec(`
 		UPDATE projects
 		SET `+strings.Join(updates, ", ")+`, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?`,
+		WHERE id = ?
+		  AND EXISTS (
+			  SELECT 1
+			  FROM project_members pm
+			  WHERE pm.project_id = projects.id AND pm.user_id = ?
+		  )`,
 		args...)
 	if err != nil {
 		return nil, err
@@ -198,11 +226,21 @@ func UpdateProject(id int, name, description *string) (*Project, error) {
 		return nil, ErrProjectNotFound
 	}
 
-	return GetProjectByID(id)
+	return GetProjectByUser(id, userID)
 }
 
-func DeleteProjectByID(id int) error {
-	result, err := db.DB.Exec(`DELETE FROM projects WHERE id = ?`, id)
+func DeleteProjectByUser(id, userID int) error {
+	result, err := db.DB.Exec(`
+		DELETE FROM projects
+		WHERE id = ?
+		  AND EXISTS (
+			  SELECT 1
+			  FROM project_members pm
+			  WHERE pm.project_id = projects.id AND pm.user_id = ?
+		  )`,
+		id,
+		userID,
+	)
 	if err != nil {
 		return err
 	}
