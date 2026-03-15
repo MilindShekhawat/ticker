@@ -3,6 +3,8 @@ package routes
 import (
 	"github.com/MilindShekhawat/ticker/internal/handlers"
 	"github.com/MilindShekhawat/ticker/internal/middleware"
+	"github.com/MilindShekhawat/ticker/internal/services"
+	"github.com/MilindShekhawat/ticker/internal/store"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -23,11 +25,15 @@ func Routes(app *fiber.App) {
 	protected.Get("/auth/me", handlers.GetCurrentUser)
 
 	// Projects
-	protected.Get("/projects", handlers.ListProjects)
-	protected.Post("/projects", handlers.CreateProject)
-	protected.Get("/projects/:id", handlers.GetProject)
-	protected.Patch("/projects/:id", handlers.UpdateProject)
-	protected.Delete("/projects/:id", handlers.DeleteProject)
+	projectStore := store.NewProjectStore()
+	projectService := services.NewProjectService(projectStore)
+	projectHandler := handlers.NewProjectHandler(projectService)
+
+	protected.Get("/projects", projectHandler.ListProjects)
+	protected.Get("/projects/:id", projectHandler.GetProject)
+	protected.Post("/projects", projectHandler.CreateProject)
+	protected.Patch("/projects/:id", projectHandler.UpdateProject)
+	protected.Delete("/projects/:id", projectHandler.DeleteProject)
 
 	// Tickets
 	protected.Get("/projects/:id/tickets", handlers.ListProjectTickets)
