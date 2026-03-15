@@ -2,9 +2,7 @@ package models
 
 import "time"
 
-const (
-	MaxProjectNameLength = 30
-)
+const MaxProjectNameLength = 30
 
 type Project struct {
 	ID          int       `json:"id"`

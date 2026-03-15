@@ -26,11 +26,6 @@ func NewProjectStore() ProjectStore {
 	return &projectStore{db: db.DB}
 }
 
-const projectSelectFields = `
-	SELECT p.id, p.name, p.description, p.key_prefix, p.created_by, p.created_at, p.updated_at
-	FROM projects p
-`
-
 func scanProject(s Scanner) (*models.Project, error) {
 	var p models.Project
 	err := s.Scan(
