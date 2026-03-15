@@ -16,13 +16,18 @@ func Routes(app *fiber.App) {
 	api := app.Group("/api/v1")
 
 	// Auth
-	api.Post("/auth/signup", handlers.Signup)
-	api.Post("/auth/login", handlers.Login)
+	userStore := store.NewUserStore()
+	sessionStore := store.NewSessionStore()
+	authService := services.NewAuthService(userStore, sessionStore)
+	authHandler := handlers.NewAuthHandler(authService)
 
-	protected := api.Group("", middleware.AuthRequired)
-	// Auth
-	protected.Post("/auth/logout", handlers.Logout)
-	protected.Get("/auth/me", handlers.GetCurrentUser)
+	api.Post("/auth/signup", authHandler.Signup)
+	api.Post("/auth/login", authHandler.Login)
+
+	protected := api.Group("", middleware.AuthRequired(sessionStore))
+
+	protected.Post("/auth/logout", authHandler.Logout)
+	protected.Get("/auth/me", authHandler.GetCurrentUser)
 
 	// Projects
 	projectStore := store.NewProjectStore()
