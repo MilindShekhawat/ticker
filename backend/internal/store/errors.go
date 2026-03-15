@@ -18,3 +18,11 @@ func isDuplicateError(err error) bool {
 	}
 	return false
 }
+
+func isUniqueConstraintError(err error) bool {
+	var sqliteErr sqlite3.Error
+	if !errors.As(err, &sqliteErr) {
+		return false
+	}
+	return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
+}
