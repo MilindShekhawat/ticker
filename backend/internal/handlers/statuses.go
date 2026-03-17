@@ -3,183 +3,132 @@ package handlers
 import (
 	"errors"
 
-	"github.com/MilindShekhawat/ticker/internal/models"
+	"github.com/MilindShekhawat/ticker/internal/services"
+	"github.com/MilindShekhawat/ticker/internal/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func ListStatuses(c *fiber.Ctx) error {
-	// Check if projectID in path
-	projectIDStr := c.Params("id")
+type StatusHandler struct {
+	service services.StatusService
+}
 
-	var projectID *int
-	if projectIDStr != "" {
-		id, err := c.ParamsInt("id")
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		projectID = &id
+func NewStatusHandler(service services.StatusService) *StatusHandler {
+	return &StatusHandler{service: service}
+}
+
+type CreateStatusRequest struct {
+	Label string `json:"label"`
+	Color string `json:"color"`
+}
+
+type UpdateStatusRequest struct {
+	Label *string `json:"label"`
+	Color *string `json:"color"`
+}
+
+type UpdateStatusPositionRequest struct {
+	Position int `json:"position"`
+}
+
+func (h *StatusHandler) ListStatuses(c *fiber.Ctx) error {
+	projectID, err := c.ParamsInt("projectID")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	statuses, err := models.ListStatuses(projectID)
+	statuses, err := h.service.List(projectID)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
 	return c.JSON(statuses)
 }
 
-func CreateStatus(c *fiber.Ctx) error {
-	// Check if projectID in path
-	projectIDStr := c.Params("id")
-
-	var projectID *int
-	if projectIDStr != "" {
-		id, err := c.ParamsInt("id")
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		projectID = &id
-	}
-
-	var req struct {
-		Label string `json:"label"`
-		Color string `json:"color"`
-	}
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
-
-	if req.Label == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Label is required",
-		})
-	}
-
-	status, err := models.CreateStatus(projectID, req.Label, req.Color)
+func (h *StatusHandler) CreateStatus(c *fiber.Ctx) error {
+	projectID, err := c.ParamsInt("projectID")
 	if err != nil {
-		if err.Error() == "invalid color format: must be #RRGGBB" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid color format",
-			})
-		}
-		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Project not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	return c.Status(201).JSON(status)
+	var req CreateStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	status, err := h.service.Create(projectID, req.Label, req.Color)
+	if err != nil {
+		return statusErrorResponse(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(status)
 }
 
-func UpdateStatus(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *StatusHandler) UpdateStatus(c *fiber.Ctx) error {
+	statusID, err := c.ParamsInt("statusID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid status ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid status ID"})
 	}
 
-	var req struct {
-		Label *string `json:"label"`
-		Color *string `json:"color"`
-	}
-
+	var req UpdateStatusRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	if req.Label == nil && req.Color == nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "No fields to update",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No fields to update"})
 	}
 
-	status, err := models.UpdateStatus(id, req.Label, req.Color)
+	status, err := h.service.Update(statusID, req.Label, req.Color)
 	if err != nil {
-		if errors.Is(err, models.ErrStatusNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Status not found",
-			})
-		}
-		if err.Error() == "invalid color format: must be #RRGGBB" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid color format",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return statusErrorResponse(c, err)
 	}
 
 	return c.JSON(status)
 }
 
-func UpdateStatusPosition(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *StatusHandler) UpdateStatusPosition(c *fiber.Ctx) error {
+	statusID, err := c.ParamsInt("statusID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid status ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid status ID"})
 	}
 
-	var req struct {
-		Position int `json:"position"`
-	}
-
+	var req UpdateStatusPositionRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	status, err := models.UpdateStatusPosition(id, req.Position)
+	status, err := h.service.UpdatePosition(statusID, req.Position)
 	if err != nil {
-		if errors.Is(err, models.ErrStatusNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Status not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return statusErrorResponse(c, err)
 	}
 
 	return c.JSON(status)
 }
 
-func DeleteStatus(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *StatusHandler) DeleteStatus(c *fiber.Ctx) error {
+	statusID, err := c.ParamsInt("statusID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid status ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid status ID"})
 	}
 
-	if err := models.DeleteStatus(id); err != nil {
-		if errors.Is(err, models.ErrStatusNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Status not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := h.service.Delete(statusID); err != nil {
+		return statusErrorResponse(c, err)
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func statusErrorResponse(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, store.ErrStatusNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Status not found"})
+	case errors.Is(err, store.ErrProjectNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
+	case errors.Is(err, services.ErrLabelRequired):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Label is required"})
+	case errors.Is(err, services.ErrInvalidColor):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid color format: must be #RRGGBB"})
+	default:
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 }

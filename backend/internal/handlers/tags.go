@@ -3,150 +3,109 @@ package handlers
 import (
 	"errors"
 
-	"github.com/MilindShekhawat/ticker/internal/models"
+	"github.com/MilindShekhawat/ticker/internal/services"
+	"github.com/MilindShekhawat/ticker/internal/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func ListTags(c *fiber.Ctx) error {
-	// Check if projectID in path
-	projectIDStr := c.Params("id")
+type TagHandler struct {
+	service services.TagService
+}
 
-	var projectID *int
-	if projectIDStr != "" {
-		id, err := c.ParamsInt("id")
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		projectID = &id
+func NewTagHandler(service services.TagService) *TagHandler {
+	return &TagHandler{service: service}
+}
+
+type CreateTagRequest struct {
+	Label string `json:"label"`
+	Color string `json:"color"`
+}
+
+type UpdateTagRequest struct {
+	Label *string `json:"label"`
+	Color *string `json:"color"`
+}
+
+func (h *TagHandler) ListTags(c *fiber.Ctx) error {
+	projectID, err := c.ParamsInt("projectID")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	tags, err := models.ListTags(projectID)
+	tags, err := h.service.List(projectID)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
 	return c.JSON(tags)
 }
 
-func CreateTag(c *fiber.Ctx) error {
-	// Check if projectID in path
-	projectIDStr := c.Params("id")
-
-	var projectID *int
-	if projectIDStr != "" {
-		id, err := c.ParamsInt("id")
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		projectID = &id
-	}
-
-	var req struct {
-		Label string `json:"label"`
-		Color string `json:"color"`
-	}
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
-
-	if req.Label == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Label is required",
-		})
-	}
-
-	tag, err := models.CreateTag(projectID, req.Label, req.Color)
+func (h *TagHandler) CreateTag(c *fiber.Ctx) error {
+	projectID, err := c.ParamsInt("projectID")
 	if err != nil {
-		if err.Error() == "invalid color format: must be #RRGGBB" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid color format",
-			})
-		}
-		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Project not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	return c.Status(201).JSON(tag)
+	var req CreateTagRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	tag, err := h.service.Create(projectID, req.Label, req.Color)
+	if err != nil {
+		return tagErrorResponse(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(tag)
 }
 
-func UpdateTag(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *TagHandler) UpdateTag(c *fiber.Ctx) error {
+	tagID, err := c.ParamsInt("tagID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid tag ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tag ID"})
 	}
 
-	var req struct {
-		Label *string `json:"label"`
-		Color *string `json:"color"`
-	}
-
+	var req UpdateTagRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	if req.Label == nil && req.Color == nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "No fields to update",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No fields to update"})
 	}
 
-	tag, err := models.UpdateTag(id, req.Label, req.Color)
+	tag, err := h.service.Update(tagID, req.Label, req.Color)
 	if err != nil {
-		if errors.Is(err, models.ErrTagNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Tag not found",
-			})
-		}
-		if err.Error() == "invalid color format: must be #RRGGBB" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid color format",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return tagErrorResponse(c, err)
 	}
 
 	return c.JSON(tag)
 }
 
-func DeleteTag(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *TagHandler) DeleteTag(c *fiber.Ctx) error {
+	tagID, err := c.ParamsInt("tagID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid tag ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tag ID"})
 	}
 
-	if err := models.DeleteTag(id); err != nil {
-		if errors.Is(err, models.ErrTagNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Tag not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := h.service.Delete(tagID); err != nil {
+		return tagErrorResponse(c, err)
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func tagErrorResponse(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, store.ErrTagNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Tag not found"})
+	case errors.Is(err, store.ErrProjectNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
+	case errors.Is(err, services.ErrInvalidColor):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid color format: must be #RRGGBB"})
+	case errors.Is(err, services.ErrLabelRequired):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Label is required"})
+	default:
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 }

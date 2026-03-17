@@ -3,183 +3,132 @@ package handlers
 import (
 	"errors"
 
-	"github.com/MilindShekhawat/ticker/internal/models"
+	"github.com/MilindShekhawat/ticker/internal/services"
+	"github.com/MilindShekhawat/ticker/internal/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func ListPriorities(c *fiber.Ctx) error {
-	// Check if projectID in path
-	projectIDStr := c.Params("id")
+type PriorityHandler struct {
+	service services.PriorityService
+}
 
-	var projectID *int
-	if projectIDStr != "" {
-		id, err := c.ParamsInt("id")
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		projectID = &id
+func NewPriorityHandler(service services.PriorityService) *PriorityHandler {
+	return &PriorityHandler{service: service}
+}
+
+type CreatePriorityRequest struct {
+	Label string `json:"label"`
+	Color string `json:"color"`
+}
+
+type UpdatePriorityRequest struct {
+	Label *string `json:"label"`
+	Color *string `json:"color"`
+}
+
+type UpdatePriorityPositionRequest struct {
+	Position int `json:"position"`
+}
+
+func (h *PriorityHandler) ListPriorities(c *fiber.Ctx) error {
+	projectID, err := c.ParamsInt("projectID")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	priorities, err := models.ListPriorities(projectID)
+	priorities, err := h.service.List(projectID)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
 	return c.JSON(priorities)
 }
 
-func CreatePriority(c *fiber.Ctx) error {
-	// Check if projectID in path
-	projectIDStr := c.Params("id")
-
-	var projectID *int
-	if projectIDStr != "" {
-		id, err := c.ParamsInt("id")
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		projectID = &id
-	}
-
-	var req struct {
-		Label string `json:"label"`
-		Color string `json:"color"`
-	}
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
-
-	if req.Label == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Label is required",
-		})
-	}
-
-	priority, err := models.CreatePriority(projectID, req.Label, req.Color)
+func (h *PriorityHandler) CreatePriority(c *fiber.Ctx) error {
+	projectID, err := c.ParamsInt("projectID")
 	if err != nil {
-		if err.Error() == "invalid color format: must be #RRGGBB" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid color format",
-			})
-		}
-		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Project not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	return c.Status(201).JSON(priority)
+	var req CreatePriorityRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	priority, err := h.service.Create(projectID, req.Label, req.Color)
+	if err != nil {
+		return priorityErrorResponse(c, err)
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(priority)
 }
 
-func UpdatePriority(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *PriorityHandler) UpdatePriority(c *fiber.Ctx) error {
+	priorityID, err := c.ParamsInt("priorityID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid priority ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid priority ID"})
 	}
 
-	var req struct {
-		Label *string `json:"label"`
-		Color *string `json:"color"`
-	}
-
+	var req UpdatePriorityRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	if req.Label == nil && req.Color == nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "No fields to update",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No fields to update"})
 	}
 
-	priority, err := models.UpdatePriority(id, req.Label, req.Color)
+	priority, err := h.service.Update(priorityID, req.Label, req.Color)
 	if err != nil {
-		if errors.Is(err, models.ErrPriorityNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Priority not found",
-			})
-		}
-		if err.Error() == "invalid color format: must be #RRGGBB" {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid color format",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return priorityErrorResponse(c, err)
 	}
 
 	return c.JSON(priority)
 }
 
-func UpdatePriorityPosition(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *PriorityHandler) UpdatePriorityPosition(c *fiber.Ctx) error {
+	priorityID, err := c.ParamsInt("priorityID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid priority ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid priority ID"})
 	}
 
-	var req struct {
-		Position int `json:"position"`
-	}
-
+	var req UpdatePriorityPositionRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	priority, err := models.UpdatePriorityPosition(id, req.Position)
+	priority, err := h.service.UpdatePosition(priorityID, req.Position)
 	if err != nil {
-		if errors.Is(err, models.ErrPriorityNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Priority not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return priorityErrorResponse(c, err)
 	}
 
 	return c.JSON(priority)
 }
 
-func DeletePriority(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *PriorityHandler) DeletePriority(c *fiber.Ctx) error {
+	priorityID, err := c.ParamsInt("priorityID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid priority ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid priority ID"})
 	}
 
-	if err := models.DeletePriority(id); err != nil {
-		if errors.Is(err, models.ErrPriorityNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Priority not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := h.service.Delete(priorityID); err != nil {
+		return priorityErrorResponse(c, err)
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func priorityErrorResponse(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, store.ErrPriorityNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Priority not found"})
+	case errors.Is(err, store.ErrProjectNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
+	case errors.Is(err, services.ErrLabelRequired):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Label is required"})
+	case errors.Is(err, services.ErrInvalidColor):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid color format: must be #RRGGBB"})
+	default:
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 }

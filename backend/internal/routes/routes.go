@@ -47,37 +47,37 @@ func Routes(app *fiber.App) {
 	protected.Patch("/tickets/:id", handlers.UpdateTicket)
 	protected.Delete("/tickets/:id", handlers.DeleteTicket)
 
-	// Global priorities
-	protected.Get("/priorities", handlers.ListPriorities)
-	protected.Post("/priorities", handlers.CreatePriority)
-	// Project priorities
-	protected.Get("/projects/:id/priorities", handlers.ListPriorities)
-	protected.Post("/projects/:id/priorities", handlers.CreatePriority)
-	// Shared operations
-	protected.Patch("/priorities/:id", handlers.UpdatePriority)
-	protected.Patch("/priorities/:id/position", handlers.UpdatePriorityPosition)
-	protected.Delete("/priorities/:id", handlers.DeletePriority)
+	// Priorities
+	priorityStore := store.NewPriorityStore()
+	priorityService := services.NewPriorityService(priorityStore, projectStore)
+	priorityHandler := handlers.NewPriorityHandler(priorityService)
 
-	// Global statuses
-	protected.Get("/statuses", handlers.ListStatuses)
-	protected.Post("/statuses", handlers.CreateStatus)
-	// Project statuses
-	protected.Get("/projects/:id/statuses", handlers.ListStatuses)
-	protected.Post("/projects/:id/statuses", handlers.CreateStatus)
-	// Shared operations
-	protected.Patch("/statuses/:id", handlers.UpdateStatus)
-	protected.Patch("/statuses/:id/position", handlers.UpdateStatusPosition)
-	protected.Delete("/statuses/:id", handlers.DeleteStatus)
+	protected.Get("/projects/:projectID/priorities", priorityHandler.ListPriorities)
+	protected.Post("/projects/:projectID/priorities", priorityHandler.CreatePriority)
+	protected.Patch("/priorities/:priorityID", priorityHandler.UpdatePriority)
+	protected.Patch("/priorities/:priorityID/position", priorityHandler.UpdatePriorityPosition)
+	protected.Delete("/priorities/:priorityID", priorityHandler.DeletePriority)
 
-	// Global tags
-	protected.Get("/tags", handlers.ListTags)
-	protected.Post("/tags", handlers.CreateTag)
-	// Project tags
-	protected.Get("/projects/:id/tags", handlers.ListTags)
-	protected.Post("/projects/:id/tags", handlers.CreateTag)
-	// Shared operations
-	protected.Patch("/tags/:id", handlers.UpdateTag)
-	protected.Delete("/tags/:id", handlers.DeleteTag)
+	// Statuses
+	statusStore := store.NewStatusStore()
+	statusService := services.NewStatusService(statusStore, projectStore)
+	statusHandler := handlers.NewStatusHandler(statusService)
+
+	protected.Get("/projects/:projectID/statuses", statusHandler.ListStatuses)
+	protected.Post("/projects/:projectID/statuses", statusHandler.CreateStatus)
+	protected.Patch("/statuses/:statusID", statusHandler.UpdateStatus)
+	protected.Patch("/statuses/:statusID/position", statusHandler.UpdateStatusPosition)
+	protected.Delete("/statuses/:statusID", statusHandler.DeleteStatus)
+
+	// Tags
+	tagStore := store.NewTagStore()
+	tagService := services.NewTagService(tagStore, projectStore)
+	tagHandler := handlers.NewTagHandler(tagService)
+
+	protected.Get("/projects/:projectID/tags", tagHandler.ListTags)
+	protected.Post("/projects/:projectID/tags", tagHandler.CreateTag)
+	protected.Patch("/tags/:tagID", tagHandler.UpdateTag)
+	protected.Delete("/tags/:tagID", tagHandler.DeleteTag)
 
 	// Comments
 	protected.Get("/tickets/:id/comments", handlers.ListComments)
