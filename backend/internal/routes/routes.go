@@ -40,6 +40,16 @@ func Routes(app *fiber.App) {
 	protected.Patch("/projects/:id", projectHandler.UpdateProject)
 	protected.Delete("/projects/:id", projectHandler.DeleteProject)
 
+	// Project members
+	projectMemberStore := store.NewProjectMemberStore()
+	projectMemberService := services.NewProjectMemberService(projectMemberStore)
+	projectMemberHandler := handlers.NewProjectMemberHandler(projectMemberService)
+
+	protected.Get("/projects/:projectId/members", projectMemberHandler.ListProjectMembers)
+	protected.Post("/projects/:projectId/members", projectMemberHandler.AddProjectMember)
+	protected.Patch("/projects/:projectId/members/:userId", projectMemberHandler.UpdateProjectMemberRole)
+	protected.Delete("/projects/:projectId/members/:userId", projectMemberHandler.RemoveProjectMember)
+
 	// Tickets
 	protected.Get("/projects/:id/tickets", handlers.ListProjectTickets)
 	protected.Post("/projects/:id/tickets", handlers.CreateProjectTicket)
