@@ -100,7 +100,11 @@ func Routes(app *fiber.App) {
 	protected.Delete("/comments/:commentID", commentHandler.DeleteComment)
 
 	// Activity
-	protected.Get("/tickets/:id/activity", handlers.GetTicketActivity)
+	ticketActivityStore := store.NewTicketActivityStore()
+	ticketActivityService := services.NewTicketActivityService(ticketActivityStore, projectMemberStore)
+	ticketActivityHandler := handlers.NewTicketActivityHandler(ticketActivityService)
+
+	protected.Get("/tickets/:ticketID/activity", ticketActivityHandler.GetTicketActivity)
 }
 
 func healthCheck(c *fiber.Ctx) error {
