@@ -4,134 +4,123 @@ import (
 	"errors"
 
 	"github.com/MilindShekhawat/ticker/internal/models"
+	"github.com/MilindShekhawat/ticker/internal/services"
+	"github.com/MilindShekhawat/ticker/internal/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func ListComments(c *fiber.Ctx) error {
-	ticketID, err := c.ParamsInt("id")
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid ticket ID",
-		})
+type CommentHandler struct {
+	service services.CommentService
+}
+
+func NewCommentHandler(service services.CommentService) *CommentHandler {
+	return &CommentHandler{service: service}
+}
+
+type CreateCommentRequest struct {
+	Body string `json:"body"`
+}
+
+type UpdateCommentRequest struct {
+	Body string `json:"body"`
+}
+
+func (h *CommentHandler) ListComments(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	comments, err := models.ListComments(ticketID)
+	ticketID, err := c.ParamsInt("ticketID")
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ticket ID"})
+	}
+
+	comments, err := h.service.ListForUser(ticketID, user.ID)
+	if err != nil {
+		return commentErrorResponse(c, err)
 	}
 
 	return c.JSON(comments)
 }
 
-func CreateComment(c *fiber.Ctx) error {
-	ticketID, err := c.ParamsInt("id")
+func (h *CommentHandler) CreateComment(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	ticketID, err := c.ParamsInt("ticketID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid ticket ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ticket ID"})
 	}
 
-	var req struct {
-		AuthorID int    `json:"author_id"`
-		Body     string `json:"body"`
-	}
-
+	var req CreateCommentRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	if req.Body == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Comment body is required",
-		})
-	}
-	if req.AuthorID == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Author ID is required",
-		})
-	}
-
-	comment, err := models.CreateComment(ticketID, req.AuthorID, req.Body)
+	comment, err := h.service.CreateForUser(ticketID, user.ID, req.Body)
 	if err != nil {
-		if errors.Is(err, models.ErrTicketNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Ticket not found",
-			})
-		}
-		if errors.Is(err, models.ErrUserNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Author not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return commentErrorResponse(c, err)
 	}
 
-	return c.Status(201).JSON(comment)
+	return c.Status(fiber.StatusCreated).JSON(comment)
 }
 
-func UpdateComment(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *CommentHandler) UpdateComment(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	commentID, err := c.ParamsInt("commentID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid comment ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid comment ID"})
 	}
 
-	var req struct {
-		Body string `json:"body"`
-	}
-
+	var req UpdateCommentRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	if req.Body == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Comment body is required",
-		})
-	}
-
-	comment, err := models.UpdateComment(id, req.Body)
+	comment, err := h.service.UpdateForUser(commentID, user.ID, req.Body)
 	if err != nil {
-		if errors.Is(err, models.ErrCommentNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Comment not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return commentErrorResponse(c, err)
 	}
 
 	return c.JSON(comment)
 }
 
-func DeleteComment(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *CommentHandler) DeleteComment(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	commentID, err := c.ParamsInt("commentID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid comment ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid comment ID"})
 	}
 
-	if err := models.DeleteComment(id); err != nil {
-		if errors.Is(err, models.ErrCommentNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Comment not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := h.service.DeleteForUser(commentID, user.ID); err != nil {
+		return commentErrorResponse(c, err)
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func commentErrorResponse(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, services.ErrInvalidCommentBody):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Comment body is required"})
+	case errors.Is(err, store.ErrTicketNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Ticket not found"})
+	case errors.Is(err, store.ErrCommentNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Comment not found"})
+	case errors.Is(err, store.ErrNotProjectMember):
+		return c.SendStatus(fiber.StatusForbidden)
+	default:
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 }

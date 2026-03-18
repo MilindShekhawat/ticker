@@ -90,10 +90,14 @@ func Routes(app *fiber.App) {
 	protected.Delete("/tags/:tagID", tagHandler.DeleteTag)
 
 	// Comments
-	protected.Get("/tickets/:id/comments", handlers.ListComments)
-	protected.Post("/tickets/:id/comments", handlers.CreateComment)
-	protected.Patch("/comments/:id", handlers.UpdateComment)
-	protected.Delete("/comments/:id", handlers.DeleteComment)
+	commentStore := store.NewCommentStore()
+	commentService := services.NewCommentService(commentStore, projectMemberStore)
+	commentHandler := handlers.NewCommentHandler(commentService)
+
+	protected.Get("/tickets/:ticketID/comments", commentHandler.ListComments)
+	protected.Post("/tickets/:ticketID/comments", commentHandler.CreateComment)
+	protected.Patch("/comments/:commentID", commentHandler.UpdateComment)
+	protected.Delete("/comments/:commentID", commentHandler.DeleteComment)
 
 	// Activity
 	protected.Get("/tickets/:id/activity", handlers.GetTicketActivity)
