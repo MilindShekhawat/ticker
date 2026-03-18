@@ -4,262 +4,191 @@ import (
 	"errors"
 
 	"github.com/MilindShekhawat/ticker/internal/models"
+	"github.com/MilindShekhawat/ticker/internal/services"
+	"github.com/MilindShekhawat/ticker/internal/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func GetTicket(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid ticket ID",
-		})
+type TicketHandler struct {
+	service services.TicketService
+}
+
+func NewTicketHandler(service services.TicketService) *TicketHandler {
+	return &TicketHandler{service: service}
+}
+
+type CreateTicketRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	StatusID    int    `json:"status_id"`
+	PriorityID  int    `json:"priority_id"`
+	AssigneeID  *int   `json:"assignee_id"`
+	TagIDs      []int  `json:"tag_ids,omitempty"`
+}
+
+type UpdateTicketRequest struct {
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	StatusID    *int    `json:"status_id"`
+	PriorityID  *int    `json:"priority_id"`
+	AssigneeID  *int    `json:"assignee_id"`
+	TagIDs      *[]int  `json:"tag_ids"`
+}
+
+func (h *TicketHandler) GetTicket(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	ticket, err := models.GetTicket(id)
+	ticketID, err := c.ParamsInt("ticketID")
 	if err != nil {
-		if errors.Is(err, models.ErrTicketNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Ticket not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ticket ID"})
+	}
+
+	ticket, err := h.service.GetForUser(ticketID, user.ID)
+	if err != nil {
+		return ticketErrorResponse(c, err)
 	}
 
 	return c.JSON(ticket)
 }
 
-func ListProjectTickets(c *fiber.Ctx) error {
-	projectId, err := c.ParamsInt("id")
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid project ID",
-		})
+func (h *TicketHandler) ListProjectTickets(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	tickets, err := models.ListProjectTickets(projectId)
+	projectID, err := c.ParamsInt("projectID")
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
+	}
+
+	tickets, err := h.service.ListForUser(projectID, user.ID)
+	if err != nil {
+		return ticketErrorResponse(c, err)
 	}
 
 	return c.JSON(tickets)
 }
 
-func CreateProjectTicket(c *fiber.Ctx) error {
-	projectId, err := c.ParamsInt("id")
+func (h *TicketHandler) CreateProjectTicket(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	projectID, err := c.ParamsInt("projectID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid project ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project ID"})
 	}
 
-	var req struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		StatusID    int    `json:"status_id"`
-		PriorityID  int    `json:"priority_id"`
-		CreatedBy   int    `json:"created_by"`
-		AssigneeID  *int   `json:"assignee_id"`
-		TagIDs      []int  `json:"tag_ids,omitempty"` // Optional tags
-	}
-
+	var req CreateTicketRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	// Validation
-	if req.Title == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Title is required",
-		})
-	}
-	if len(req.Title) > 200 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Title too long (max 200 characters)",
-		})
-	}
-	if req.StatusID == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Status ID is required",
-		})
-	}
-	if req.PriorityID == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Priority ID is required",
-		})
-	}
-	if req.CreatedBy == 0 {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Created by is required",
-		})
-	}
-
-	// Create ticket
-	ticket, err := models.CreateTicket(
-		projectId,
+	ticket, err := h.service.CreateForUser(
+		projectID,
 		req.Title,
 		req.Description,
 		req.StatusID,
 		req.PriorityID,
-		req.CreatedBy,
+		user.ID,
 		req.AssigneeID,
+		req.TagIDs,
 	)
-
 	if err != nil {
-		if errors.Is(err, models.ErrProjectNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid project ID",
-			})
-		}
-		if errors.Is(err, models.ErrStatusNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid status ID",
-			})
-		}
-		if errors.Is(err, models.ErrPriorityNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid priority ID",
-			})
-		}
-		if errors.Is(err, models.ErrUserNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid created by user ID",
-			})
-		}
-		if errors.Is(err, models.ErrAssigneeNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid assignee ID",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return ticketErrorResponse(c, err)
 	}
 
-	// Add tags if provided (best effort - don't fail if tag add fails)
-	for _, tagID := range req.TagIDs {
-		_ = models.AddTagToTicket(ticket.ID, tagID)
-	}
-
-	return c.Status(201).JSON(ticket)
+	return c.Status(fiber.StatusCreated).JSON(ticket)
 }
 
-func UpdateTicket(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *TicketHandler) UpdateTicket(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	ticketID, err := c.ParamsInt("ticketID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid ticket ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ticket ID"})
 	}
 
-	var req struct {
-		Title       *string `json:"title"`
-		Description *string `json:"description"`
-		StatusID    *int    `json:"status_id"`
-		PriorityID  *int    `json:"priority_id"`
-		AssigneeID  *int    `json:"assignee_id"`
-		TagIDs      *[]int  `json:"tag_ids"` // Optional: if provided, replace all tags
-	}
-
+	var req UpdateTicketRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	// Check if anything to update
 	if req.Title == nil && req.Description == nil && req.StatusID == nil &&
 		req.PriorityID == nil && req.AssigneeID == nil && req.TagIDs == nil {
-		return c.Status(400).JSON(fiber.Map{"error": "No fields to update"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No fields to update"})
 	}
 
-	// Validate fields
-	if req.Title != nil {
-		if *req.Title == "" {
-			return c.Status(400).JSON(fiber.Map{"error": "Title cannot be empty"})
-		}
-		if len(*req.Title) > 200 {
-			return c.Status(400).JSON(fiber.Map{"error": "Title too long"})
-		}
-	}
-	if req.StatusID != nil && *req.StatusID == 0 {
-		return c.Status(400).JSON(fiber.Map{"error": "Status ID cannot be 0"})
-	}
-	if req.PriorityID != nil && *req.PriorityID == 0 {
-		return c.Status(400).JSON(fiber.Map{"error": "Priority ID cannot be 0"})
-	}
-
-	// Update ticket
-	ticket, err := models.UpdateTicket(id, req.Title, req.Description, req.StatusID, req.PriorityID, req.AssigneeID)
+	ticket, err := h.service.UpdateForUser(
+		ticketID,
+		user.ID,
+		req.Title,
+		req.Description,
+		req.StatusID,
+		req.PriorityID,
+		req.AssigneeID,
+		req.TagIDs,
+	)
 	if err != nil {
-		if errors.Is(err, models.ErrTicketNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Ticket not found",
-			})
-		}
-		if errors.Is(err, models.ErrStatusNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid status ID",
-			})
-		}
-		if errors.Is(err, models.ErrPriorityNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid priority ID",
-			})
-		}
-		if errors.Is(err, models.ErrAssigneeNotFound) {
-			return c.Status(400).JSON(fiber.Map{
-				"error": "Invalid assignee ID",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	// Update tags if provided (replace all tags)
-	if req.TagIDs != nil {
-		// Get current tags
-		currentTags, err := models.GetTagsByTicket(id)
-		if err == nil {
-			// Remove all current tags
-			for _, tag := range currentTags {
-				_ = models.RemoveTagFromTicket(id, tag.ID)
-			}
-		}
-
-		// Add new tags
-		for _, tagID := range *req.TagIDs {
-			_ = models.AddTagToTicket(id, tagID)
-		}
+		return ticketErrorResponse(c, err)
 	}
 
 	return c.JSON(ticket)
 }
 
-func DeleteTicket(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+func (h *TicketHandler) DeleteTicket(c *fiber.Ctx) error {
+	user, ok := c.Locals("user").(*models.User)
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	ticketID, err := c.ParamsInt("ticketID")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid ticket ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ticket ID"})
 	}
 
-	if err := models.DeleteTicket(id); err != nil {
-		if errors.Is(err, models.ErrTicketNotFound) {
-			return c.Status(404).JSON(fiber.Map{
-				"error": "Ticket not found",
-			})
-		}
-		return c.Status(500).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if err := h.service.DeleteForUser(ticketID, user.ID); err != nil {
+		return ticketErrorResponse(c, err)
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func ticketErrorResponse(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, services.ErrTicketTitleRequired):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Title is required"})
+	case errors.Is(err, services.ErrTicketTitleTooLong):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Title too long (max 200 characters)"})
+	case errors.Is(err, services.ErrInvalidStatusID):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid status ID"})
+	case errors.Is(err, services.ErrInvalidPriorityID):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid priority ID"})
+	case errors.Is(err, services.ErrInvalidAssigneeID):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid assignee ID"})
+	case errors.Is(err, store.ErrProjectNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
+	case errors.Is(err, store.ErrTicketNotFound):
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Ticket not found"})
+	case errors.Is(err, store.ErrStatusNotFound):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid status ID"})
+	case errors.Is(err, store.ErrPriorityNotFound):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid priority ID"})
+	case errors.Is(err, store.ErrTagNotFound):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tag ID"})
+	case errors.Is(err, store.ErrUserNotFound):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid assignee ID"})
+	case errors.Is(err, store.ErrNotProjectMember):
+		return c.SendStatus(fiber.StatusForbidden)
+	default:
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 }

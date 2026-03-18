@@ -50,13 +50,6 @@ func Routes(app *fiber.App) {
 	protected.Patch("/projects/:projectId/members/:userId", projectMemberHandler.UpdateProjectMemberRole)
 	protected.Delete("/projects/:projectId/members/:userId", projectMemberHandler.RemoveProjectMember)
 
-	// Tickets
-	protected.Get("/projects/:id/tickets", handlers.ListProjectTickets)
-	protected.Post("/projects/:id/tickets", handlers.CreateProjectTicket)
-	protected.Get("/tickets/:id", handlers.GetTicket)
-	protected.Patch("/tickets/:id", handlers.UpdateTicket)
-	protected.Delete("/tickets/:id", handlers.DeleteTicket)
-
 	// Priorities
 	priorityStore := store.NewPriorityStore()
 	priorityService := services.NewPriorityService(priorityStore, projectStore)
@@ -88,6 +81,25 @@ func Routes(app *fiber.App) {
 	protected.Post("/projects/:projectID/tags", tagHandler.CreateTag)
 	protected.Patch("/tags/:tagID", tagHandler.UpdateTag)
 	protected.Delete("/tags/:tagID", tagHandler.DeleteTag)
+
+	// Tickets
+	ticketStore := store.NewTicketStore()
+	ticketService := services.NewTicketService(
+		ticketStore,
+		projectStore,
+		projectMemberStore,
+		statusStore,
+		priorityStore,
+		userStore,
+		tagStore,
+	)
+	ticketHandler := handlers.NewTicketHandler(ticketService)
+
+	protected.Get("/projects/:projectID/tickets", ticketHandler.ListProjectTickets)
+	protected.Post("/projects/:projectID/tickets", ticketHandler.CreateProjectTicket)
+	protected.Get("/tickets/:ticketID", ticketHandler.GetTicket)
+	protected.Patch("/tickets/:ticketID", ticketHandler.UpdateTicket)
+	protected.Delete("/tickets/:ticketID", ticketHandler.DeleteTicket)
 
 	// Comments
 	commentStore := store.NewCommentStore()

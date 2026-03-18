@@ -46,40 +46,6 @@ func scanTicket(s Scanner) (*Ticket, error) {
 	return &t, err
 }
 
-// Unused
-func GetTickets() ([]Ticket, error) {
-	query := `
-		SELECT id, project_id, ticket_number, title, description,
-		       status_id, priority_id, position, assignee_id, created_by,
-		       created_at, updated_at, deleted_at
-		FROM tickets
-		WHERE deleted_at IS NULL
-		ORDER BY created_at DESC
-	`
-
-	rows, err := db.DB.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query tickets: %w", err)
-	}
-	defer rows.Close()
-
-	tickets := []Ticket{}
-	for rows.Next() {
-		t, err := scanTicket(rows)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan ticket: %w", err)
-		}
-		tickets = append(tickets, *t)
-	}
-
-	// Always check Err() after rows.Next()
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating tickets: %w", err)
-	}
-
-	return tickets, nil
-}
-
 func GetTicket(id int) (*Ticket, error) {
 	query := `
 		SELECT id, project_id, ticket_number, title, description,
