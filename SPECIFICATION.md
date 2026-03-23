@@ -12,7 +12,7 @@ A lightweight, self deployable, project management system. Organize work into pr
 - **Tickets**: Create tickets, add customizable tags and statuses
 - **Views**: View tickets as tables or kanban boards
 - **Docs**: Write and maintain markdown documentation linked to tickets
-- **Comments**: Discuss tickets through threaded comments
+- **Comments**: Discuss tickets through comments
 - **Role-Based Access Control**: Owner/Admin/Member/Viewer roles per project
 
 **Deployment Models**
@@ -137,28 +137,21 @@ Composite PK: (project_id, user_id)
 
 ### tickets
 
-Unchanged except:
-
 - All operations require membership validation.
-- Status/priority/tag must belong to same project.
+- `created_by` is derived from authenticated user, not client input.
+- Status, priority, and tags must belong to the same project as the ticket.
+- Assignee must reference an existing user when provided.
 
 ### ticket_activity
 
-Uses normalized fields (no JSON metadata).
+Stores activity metadata as JSON payloads.
 
 ```
 id
 ticket_id
 actor_id
 activity_type
-from_status_id
-to_status_id
-from_assignee_id
-to_assignee_id
-comment_id
-field_name
-old_value
-new_value
+metadata
 created_at
 ```
 
@@ -215,36 +208,42 @@ DELETE /api/v1/projects/:projectId/members/:userId
 ### Tickets
 
 ```
-GET    /api/v1/projects/:id/tickets
-POST   /api/v1/projects/:id/tickets
-GET    /api/v1/tickets/:id
-PATCH  /api/v1/tickets/:id
-DELETE /api/v1/tickets/:id
-PATCH  /api/v1/projects/:id/tickets/bulk
+GET    /api/v1/projects/:projectID/tickets
+POST   /api/v1/projects/:projectID/tickets
+GET    /api/v1/tickets/:ticketID
+PATCH  /api/v1/tickets/:ticketID
+DELETE /api/v1/tickets/:ticketID
 ```
 
 Membership required.
+
+- Ticket create/update validates status and priority against the target project.
+- Ticket create/update validates each tag against the target project.
+- Empty patch payloads are rejected.
 
 ### Statuses / Priorities / Tags
 
 Project-scoped operations require project membership.
 
-Global templates remain supported.
-
 ### Comments
 
 ```
-GET    /api/v1/tickets/:id/comments
-POST   /api/v1/tickets/:id/comments
-PATCH  /api/v1/comments/:id
-DELETE /api/v1/comments/:id
+GET    /api/v1/tickets/:ticketID/comments
+POST   /api/v1/tickets/:ticketID/comments
+PATCH  /api/v1/comments/:commentID
+DELETE /api/v1/comments/:commentID
 ```
+
+- Membership in the ticket's project is required.
+- Comment author is derived from authenticated user, not client input.
 
 ### Activity
 
 ```
-GET    /api/v1/tickets/:id/activity
+GET    /api/v1/tickets/:ticketID/activity
 ```
+
+- Membership in the ticket's project is required.
 
 ## 8: Key Security Guarantees
 
