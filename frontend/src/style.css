@@ -1,9 +1,44 @@
 @import "./styles/tokens.css";
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   Design System Reference
+   Visual guide: /playground → Stylesheet section
+   ───────────────────────────────────────────────────────────────
+
+   Zinc scale
+     zinc-{0..9}
+
+   Surface depth (lightest → darkest)
+     zinc-6 card  →  zinc-7 overlay  →  zinc-8 surface
+     zinc-9 app
+
+   Borders
+     zinc-7 default  ·  zinc-6 strong  ·  lime-4 focus
+
+   Text
+     zinc-0 primary  ·  zinc-2 secondary  ·  zinc-4 muted
+     zinc-5 disabled  ·  lime-4 accent
+
+   Chromatic scales
+     lime|green|red|cyan|yellow|blue|pink|purple-{3,4,5,6,7,9}
+
+   Scale semantics
+     3 bright text  ·  4 default text/icon  ·  5 fill
+     6 hover  ·  7 active  ·  9 tinted background
+
+   Typography
+     Display headings: Xanh Mono (serif)
+     Everything else:  JetBrains Mono
+     Scale: Tailwind defaults (text-xs → text-4xl, rem)
+
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Fonts ─────────────────────────────────────────────────── */
+
 html,
 body {
-    font-family: "JetBrains Mono", monospace;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 body {
@@ -12,8 +47,192 @@ body {
     color: var(--color-text-primary);
 }
 
-*,
-*::before,
-*::after {
-    border-color: var(--color-border-default);
+/* ── Font utilities ────────────────────────────────────────── */
+
+.font-display {
+    font-family: "Xanh Mono", serif;
+}
+
+.font-mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-zinc-5);
+}
+
+/* ── Selection ─────────────────────────────────────────────── */
+
+::selection {
+    background: color-mix(in oklch, var(--color-accent) 22%, var(--color-bg-app));
+    color: var(--color-accent);
+}
+
+/* ── Focus ─────────────────────────────────────────────────── */
+
+:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* ── Wireframe grid pattern ────────────────────────────────── */
+
+.wireframe-grid {
+    background-image:
+        linear-gradient(color-mix(in oklch, var(--color-border-strong) 15%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in oklch, var(--color-border-strong) 15%, transparent) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+.wireframe-grid-dense {
+    background-image:
+        linear-gradient(color-mix(in oklch, var(--color-border-strong) 12%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in oklch, var(--color-border-strong) 12%, transparent) 1px, transparent 1px);
+    background-size: 12px 12px;
+}
+
+/* ── Extended rule line ────────────────────────────────────── */
+/* Uses 100vw + translateX trick so lines span full viewport    */
+/* regardless of ancestor overflow settings.                    */
+
+.rule-line-bottom {
+    position: relative;
+}
+
+.rule-line-bottom::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 1px;
+    background: var(--color-border-default);
+}
+
+.rule-line-top {
+    position: relative;
+}
+
+.rule-line-top::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 1px;
+    background: var(--color-border-default);
+}
+
+/* ── Extended rule line (lime accent) ──────────────────────── */
+
+.rule-line-bottom-accent::after {
+    background: var(--color-accent);
+}
+
+.rule-line-top-accent::before {
+    background: var(--color-accent);
+}
+
+/* ── Color scale ──────────────────────────────────────────── */
+
+@theme {
+    --color-zinc-0: oklch(0.90 0.01 260);
+    --color-zinc-1: oklch(0.78 0.01 260);
+    --color-zinc-2: oklch(0.66 0.01 260);
+    --color-zinc-3: oklch(0.55 0.01 260);
+    --color-zinc-4: oklch(0.46 0.01 260);
+    --color-zinc-5: oklch(0.37 0.01 260);
+    --color-zinc-6: oklch(0.29 0.01 260);
+    --color-zinc-7: oklch(0.22 0.01 260);
+    --color-zinc-8: oklch(0.17 0.01 260);
+    --color-zinc-9: oklch(0.14 0.01 260);
+
+
+    --color-lime-1: oklch(0.90 0.2 130);
+    --color-lime-3: oklch(0.84 0.2 130);
+    --color-lime-4: oklch(0.74 0.2 130);
+    --color-lime-5: oklch(0.70 0.2 130);
+    --color-lime-6: oklch(0.60 0.2 130);
+    --color-lime-7: oklch(0.50 0.2 130);
+    --color-lime-9: oklch(0.35 0.1 130);
+
+
+    --color-red-1: oklch(0.90 0.2 20);
+    --color-red-3: oklch(0.84 0.2 20);
+    --color-red-4: oklch(0.74 0.2 20);
+    --color-red-5: oklch(0.70 0.2 20);
+    --color-red-6: oklch(0.60 0.2 20);
+    --color-red-7: oklch(0.50 0.2 20);
+    --color-red-9: oklch(0.35 0.1 20);
+
+
+    --color-yellow-1: oklch(0.90 0.2 100);
+    --color-yellow-3: oklch(0.84 0.2 100);
+    --color-yellow-4: oklch(0.74 0.2 100);
+    --color-yellow-5: oklch(0.70 0.2 100);
+    --color-yellow-6: oklch(0.60 0.2 100);
+    --color-yellow-7: oklch(0.50 0.2 100);
+    --color-yellow-9: oklch(0.35 0.1 100);
+
+
+    --color-green-1: oklch(0.90 0.2 160);
+    --color-green-3: oklch(0.84 0.2 160);
+    --color-green-4: oklch(0.74 0.2 160);
+    --color-green-5: oklch(0.70 0.2 160);
+    --color-green-6: oklch(0.60 0.2 160);
+    --color-green-7: oklch(0.50 0.2 160);
+    --color-green-9: oklch(0.35 0.1 160);
+
+
+    --color-cyan-1: oklch(0.90 0.2 200);
+    --color-cyan-3: oklch(0.84 0.2 200);
+    --color-cyan-4: oklch(0.74 0.2 200);
+    --color-cyan-5: oklch(0.70 0.2 200);
+    --color-cyan-6: oklch(0.60 0.2 200);
+    --color-cyan-7: oklch(0.50 0.2 200);
+    --color-cyan-9: oklch(0.35 0.1 200);
+
+
+    --color-blue-1: oklch(0.90 0.2 260);
+    --color-blue-3: oklch(0.84 0.2 260);
+    --color-blue-4: oklch(0.74 0.2 260);
+    --color-blue-5: oklch(0.70 0.2 260);
+    --color-blue-6: oklch(0.60 0.2 260);
+    --color-blue-7: oklch(0.50 0.2 260);
+    --color-blue-9: oklch(0.35 0.1 260);
+
+
+    --color-purple-1: oklch(0.90 0.2 300);
+    --color-purple-3: oklch(0.84 0.2 300);
+    --color-purple-4: oklch(0.74 0.2 300);
+    --color-purple-5: oklch(0.70 0.2 300);
+    --color-purple-6: oklch(0.60 0.2 300);
+    --color-purple-7: oklch(0.50 0.2 300);
+    --color-purple-9: oklch(0.35 0.1 300);
+
+
+    --color-magenta-1: oklch(0.90 0.2 360);
+    --color-magenta-3: oklch(0.84 0.2 360);
+    --color-magenta-4: oklch(0.74 0.2 360);
+    --color-magenta-5: oklch(0.70 0.2 360);
+    --color-magenta-6: oklch(0.60 0.2 360);
+    --color-magenta-7: oklch(0.50 0.2 360);
+    --color-magenta-9: oklch(0.35 0.1 360);
 }
